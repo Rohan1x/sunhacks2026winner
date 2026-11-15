@@ -14,7 +14,7 @@ import {
   readonlyProgram,
 } from "../../lib/chain";
 import { buildPay, prepare, sendSigned } from "../../lib/actions";
-import { InjectedWallet, getInjected } from "../../lib/wallet";
+import { InjectedWallet, describeError, getInjected } from "../../lib/wallet";
 
 type Status = { kind: "ok" | "bad" | "info"; text: string } | null;
 
@@ -28,10 +28,6 @@ export default function Pay() {
   const [amount, setAmount] = useState("25");
   const [status, setStatus] = useState<Status>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    setWallet(getInjected());
-  }, []);
 
   const merchant = useMemo(() => DEMO.merchants.find((m) => m.wallet === merchantWallet), [merchantWallet]);
 
@@ -48,14 +44,17 @@ export default function Pay() {
   }
 
   async function connectWallet() {
-    if (!wallet) {
+    const w = getInjected();
+    if (!w) {
       setStatus({ kind: "bad", text: "No Solana wallet found. Install Phantom and set its network to the demo cluster." });
       return;
     }
     try {
-      const { publicKey } = await wallet.connect();
-      setOwner(publicKey);
-      await refreshAccount(publicKey);
+      setWallet(w);
+      const { publicKey } = await w.connect();
+      const key = new PublicKey(publicKey.toString());
+      setOwner(key);
+      await refreshAccount(key);
     } catch (e: any) {
       setStatus({ kind: "bad", text: `Wallet connect failed: ${e?.message ?? e}` });
     }
@@ -83,7 +82,8 @@ export default function Pay() {
       }
       await refreshAccount(owner);
     } catch (e: any) {
-      setStatus({ kind: "bad", text: `✗ ${e?.message ?? String(e)}` });
+      console.error("pay failed", e);
+      setStatus({ kind: "bad", text: `✗ ${describeError(e)}` });
     } finally {
       setBusy(false);
     }
@@ -97,11 +97,10 @@ export default function Pay() {
         rejected by the chain.
       </p>
 
-      {!wallet && <div className="card bad">No Solana wallet detected. Install Phantom to pay.</div>}
 
       <div className="card">
         {!owner ? (
-          <button onClick={connectWallet} disabled={!wallet}>Connect wallet</button>
+          <button onClick={connectWallet}>Connect wallet</button>
         ) : (
           <p>
             Connected <span className="mono">{owner.toBase58()}</span>

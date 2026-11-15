@@ -27,10 +27,6 @@ export default function MerchantPage() {
   const [status, setStatus] = useState<Status>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    setWallet(getInjected());
-  }, []);
-
   async function refresh(who: PublicKey) {
     try {
       const m = await readonlyProgram.account.merchant.fetchNullable(merchantPda(who));
@@ -50,14 +46,17 @@ export default function MerchantPage() {
   }
 
   async function connectWallet() {
-    if (!wallet) {
+    const w = getInjected();
+    if (!w) {
       setStatus({ kind: "bad", text: "No Solana wallet found. Install Phantom." });
       return;
     }
     try {
-      const { publicKey } = await wallet.connect();
-      setOwner(publicKey);
-      await refresh(publicKey);
+      setWallet(w);
+      const { publicKey } = await w.connect();
+      const key = new PublicKey(publicKey.toString());
+      setOwner(key);
+      await refresh(key);
     } catch (e: any) {
       setStatus({ kind: "bad", text: `Connect failed: ${e?.message ?? e}` });
     }
@@ -102,8 +101,7 @@ export default function MerchantPage() {
 
       {!owner ? (
         <div className="card">
-          <button onClick={connectWallet} disabled={!wallet}>Connect merchant wallet</button>
-          {!wallet && <p className="bad">No Solana wallet detected.</p>}
+          <button onClick={connectWallet}>Connect merchant wallet</button>
         </div>
       ) : (
         <>

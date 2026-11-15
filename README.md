@@ -86,3 +86,7 @@ Live URL: https://rohan1x.github.io/sunhacks2026winner/
 Notes:
 - The browser talks to devnet directly, so the public devnet RPC rate limits apply. Use a dedicated RPC by changing `NEXT_PUBLIC_RPC_URL` in the workflow.
 - Wallet features need Phantom in the browser. The dashboard works without one.
+
+## Testing the web app without Phantom
+
+`scripts/dev-signer.ts` runs locally on 127.0.0.1:4020 and signs with the demo keys. `scripts/dev-wallet.js` provides a stand-in wallet for the browser (`useDevWallet("grantee1")` in the console, then click Connect). Dev only. No private key enters the page.

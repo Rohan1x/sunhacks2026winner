@@ -49,10 +49,6 @@ export default function IssuerPage() {
 
   const isIssuer = !!owner && owner.toBase58() === DEMO.issuer;
 
-  useEffect(() => {
-    setWallet(getInjected());
-  }, []);
-
   async function refresh() {
     try {
       const d = await loadDashboard();
@@ -71,13 +67,16 @@ export default function IssuerPage() {
   }, []);
 
   async function connectWallet() {
-    if (!wallet) {
+    const w = getInjected();
+    if (!w) {
       setStatus({ kind: "bad", text: "No Solana wallet found. Install Phantom." });
       return;
     }
     try {
-      const { publicKey } = await wallet.connect();
-      setOwner(publicKey);
+      setWallet(w);
+      const { publicKey } = await w.connect();
+      const key = new PublicKey(publicKey.toString());
+      setOwner(key);
     } catch (e: any) {
       setStatus({ kind: "bad", text: `Connect failed: ${e?.message ?? e}` });
     }
@@ -166,8 +165,7 @@ export default function IssuerPage() {
 
       {!owner ? (
         <div className="card">
-          <button onClick={connectWallet} disabled={!wallet}>Connect issuer wallet</button>
-          {!wallet && <p className="bad">No Solana wallet detected.</p>}
+          <button onClick={connectWallet}>Connect issuer wallet</button>
         </div>
       ) : !isIssuer ? (
         <div className="card bad">

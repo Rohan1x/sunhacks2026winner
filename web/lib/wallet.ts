@@ -32,5 +32,18 @@ export function walletProgram(w: InjectedWallet, owner: PublicKey) {
 // Pull the on-chain error name out of a failed send or simulation.
 export function errorName(e: any): string {
   const text = [String(e?.message ?? e), ...(e?.logs ?? [])].join("\n");
-  return text.match(/Error Code: (\w+)/)?.[1] ?? (e?.message ?? String(e));
+  return text.match(/Error Code: (\w+)/)?.[1] ?? describeError(e);
+}
+
+// Readable text for any thrown value. Wallets and RPC clients don't always throw Error instances.
+export function describeError(e: any): string {
+  if (!e) return "unknown error";
+  if (typeof e === "string") return e;
+  if (e.message) return String(e.message);
+  if (e.error?.message) return String(e.error.message);
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return String(e);
+  }
 }

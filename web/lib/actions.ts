@@ -165,17 +165,32 @@ export type SendResult = { signature: string; error: string | null };
 
 // Pull the on-chain error name from a failed transaction's logs.
 export async function errorFromChain(conn: Connection, signature: string): Promise<string> {
-  const info = await conn.getTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
-  const logs = (info?.meta?.logMessages ?? []).join("\n");
-  return logs.match(/Error Code: (\w+)/)?.[1] ?? "transaction failed";
+  // RPC nodes can lag a moment behind confirmation, so retry the lookup briefly.
+  let info: Awaited<ReturnType<Connection["getTransaction"]>> = null;
+  for (let i = 0; i < 8 && !info; i++) {
+    info = await conn.getTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
+    if (!info) await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (!info) return "transaction failed (details not available yet)";
+  const logs = (info.meta?.logMessages ?? []).join("\n");
+  const name = logs.match(/Error Code: (\w+)/)?.[1];
+  if (name) return name;
+  return info.meta?.err ? JSON.stringify(info.meta.err) : "transaction failed";
 }
 
 // Send an already-signed transaction and wait for confirmation.
 // `skipPreflight` lets rule violations land on-chain so they appear in the live feed as blocked.
-// Preflight failures throw; confirmation of a failed transaction does not, so value.err is checked.
+// Preflight failures throw. A failed transaction can come back either as value.err or as a thrown error,
+// depending on the web3.js version, so both are read the same way: the on-chain error name from the logs.
 export async function sendSigned(conn: Connection, signed: Transaction, skipPreflight: boolean): Promise<SendResult> {
   const signature = await conn.sendRawTransaction(signed.serialize(), { skipPreflight });
-  const res = await conn.confirmTransaction(signature, "confirmed");
-  if (!res.value.err) return { signature, error: null };
+  try {
+    const res = await conn.confirmTransaction(signature, "confirmed");
+    if (!res.value.err) return { signature, error: null };
+  } catch (e: any) {
+    // Timeouts are not failures: let them through so the caller can say the outcome is unknown.
+    const text = JSON.stringify(e?.message ?? e ?? "");
+    if (/expired|block height/i.test(text)) throw e;
+  }
   return { signature, error: await errorFromChain(conn, signature) };
 }
