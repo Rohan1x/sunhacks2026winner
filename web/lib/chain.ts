@@ -31,7 +31,7 @@ export type Demo = {
 };
 
 export const DEMO = demoJson as Demo;
-export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? "http://127.0.0.1:8899";
+export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? "https://api.devnet.solana.com";
 export const PROGRAM_ID = new PublicKey(DEMO.programId);
 export const MINT = new PublicKey(DEMO.rulecashMint);
 export const GRANT = new PublicKey(DEMO.grant);
