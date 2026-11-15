@@ -6,7 +6,7 @@ Built at SunHacks 2026.
 
 - 📋 Full build plan: [PLAN.md](PLAN.md)
 - 🌐 Network: Solana devnet (program `8uuvaV8HNBKFsDp2Dn7CnzaQDV59AebPJfAkzJUUFusC`)
-- 🖥️ Live app: https://rohan1x.github.io/sunhacks2026winner/
+- 🖥️ Live app: https://rohan1x.github.io/sunhacks2026winner/app/
 
 ## Status
 
@@ -117,7 +117,7 @@ The web app is a static export. `.github/workflows/pages.yml` builds it with `BA
 
 One-time setup (done): in the repo, Settings → Pages → Build and deployment → Source: **GitHub Actions**. Pushes to `main` that touch `web/` redeploy.
 
-Live URL: https://rohan1x.github.io/sunhacks2026winner/
+Live URL: https://rohan1x.github.io/sunhacks2026winner/app/
 
 Notes:
 - The browser talks to devnet directly, so the public devnet RPC rate limits apply. Under load the dashboard can go blank. Use a dedicated RPC by changing `NEXT_PUBLIC_RPC_URL` in the workflow.

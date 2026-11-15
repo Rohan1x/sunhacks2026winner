@@ -6,7 +6,7 @@
 This plan was first written before any code existed. It has been updated to match the repo as of commit `b234922`. Where the original plan turned out wrong, the change is noted in place. Current status lives in [README.md](README.md). A plain-language explainer exists locally at `docs/CASHRULES-EXPLAINED.md` (not committed).
 
 - **Program (devnet):** `8uuvaV8HNBKFsDp2Dn7CnzaQDV59AebPJfAkzJUUFusC`
-- **Live app:** https://rohan1x.github.io/sunhacks2026winner/
+- **Live app:** https://rohan1x.github.io/sunhacks2026winner/app/
 
 Status key: **Done**, **In progress**, **Not started**, **Blocked** (waiting on a decision or dependency).
 
