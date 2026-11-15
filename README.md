@@ -5,13 +5,16 @@
 Built at SunHacks 2026.
 
 - 📋 Full build plan: [PLAN.md](PLAN.md)
-- 🌐 Network: Solana devnet
+- 🌐 Network: Solana devnet (program `3jea1uUS3qbgGYXLrUDirRUPN97qhPEF3A9c8vue3H9t`)
+- 🖥️ Live app: https://rohan1x.github.io/sunhacks2026winner/ (once GitHub Pages is enabled, see below)
 
 ## Status
 
 - ✅ Phase 1: transfer hook enforces merchant allowlist, category bitmask, per-tx cap and per-grantee daily cap.
 - ✅ Phase 2 (program): USDC vault. `deposit_and_mint` locks USDC and mints RuleCash 1:1. `redeem` lets approved merchants burn RuleCash for USDC. The RuleCash mint authority is the grant PDA, so supply can only grow through the vault.
-- ⏳ Not yet: devnet deploy and seed script, app, Solana Pay, Blinks.
+- ✅ Deployed to devnet and seeded. Smoke test passes on devnet.
+- ✅ Web app: dashboard, pay, merchant and issuer pages. Static export, deployed by GitHub Actions to GitHub Pages.
+- ⏳ Not yet: Phantom end-to-end test, Solana Pay QR, Blinks, stats page.
 
 Test notes: the mock USDC in tests is Token-2022. Classic-token ATA creation fails on the local Agave 4.x validator, so the classic-token path (`usdc_token_program = Tokenkeg…`) is not exercised by the suite yet.
 
