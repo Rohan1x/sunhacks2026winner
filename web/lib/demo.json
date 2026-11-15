@@ -1,40 +1,40 @@
 {
-  "cluster": "http://127.0.0.1:8899",
+  "cluster": "https://api.devnet.solana.com",
   "programId": "3jea1uUS3qbgGYXLrUDirRUPN97qhPEF3A9c8vue3H9t",
   "issuer": "GSuYaR8rgtB68KP3sCXR1J9DFWyJpE4tkDdwNFxyZnpV",
-  "rulecashMint": "GDx9kPwjcWuYZuZyt1HhrxLAQmoYkLVV8BN4UhPpgvFg",
-  "usdcMint": "3uzdVfGrwBVEsXzguhwzdr18AXNyGv8cGornkHwHvZmu",
+  "rulecashMint": "AGdJCvF6PDCX26ddZw5RKhF46Jmrh2yqHFeJqERqQrW3",
+  "usdcMint": "AhbELdBLTUVMxthZZJX8rADKPfTgdMSWQnchcnFR6RD5",
   "usdcTokenProgram": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-  "grant": "CTjqd4KbMqvpLx4NYung4QrmGrKB8X9w5pUurmnPKSUQ",
-  "vault": "BwNiSdoRQimspgkBweFujzGVDCH6zfncqL7418jkvbif",
+  "grant": "5cXu62LRMJkrYed5Xe5CEPCzC8Ng9kGGAt7Zmjsp8TD9",
+  "vault": "Ee3Tfy9aQTrp3KMH2rExae7E6sDzdDNQ97pgXjtaZeYZ",
   "dailyCap": 500,
   "allowedCategories": 3,
   "grantees": [
     {
       "name": "Team Alpha",
-      "wallet": "A1HvcVunJYNvRZCS7kSiQcL7KrrWDNhKw6yc3QQTT9Pi"
+      "wallet": "A9rZmEvWF3VaX22hm17h7jWocyXo9yqfBPwzSKPekNd5"
     },
     {
       "name": "Team Beta",
-      "wallet": "Apb55WNDEpjNjJGsrviC3WHKm7eAUiY5fCJyc6Pnf2v4"
+      "wallet": "92JVdTj2bRHiun9yWWuJei2vMX2BRVoBLPQHJHV2j52K"
     }
   ],
   "merchants": [
     {
       "name": "Campus Hardware Store",
-      "wallet": "G63KBDb6aRp2XqUxRNXxEmLa87gAZ2K7YREnio5Sr9vi",
+      "wallet": "9NyDZUWwhDFFa1YrkuzJEjt4Z9ifLoHiRP2A2uvgis4j",
       "category": 1,
       "perTxCap": 200
     },
     {
       "name": "Pizza Co",
-      "wallet": "5wGECgJ3fAik1PPDSEhuKTuzYcQgMkS5Bs55XmFnzU9w",
+      "wallet": "Gk1HCDS6Zn8VkCV6EcXeRYeh2mM5RBpAK9fCMb8nAskP",
       "category": 0,
       "perTxCap": 60
     },
     {
       "name": "Blocked Casino",
-      "wallet": "HUWEfvXGqmH6GgquSaKXBEYLFTyPPFh7JKSceiniFj7y",
+      "wallet": "8TDdbwf4kgUJENBTJz5WxDq2cuqdWvkpUE7wq4WB2XFu",
       "category": 5,
       "perTxCap": 200,
       "blockedByGrant": true

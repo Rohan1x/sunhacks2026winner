@@ -31,6 +31,7 @@ import {
   getMintLen,
 } from "@solana/spl-token";
 import * as fs from "fs";
+import { throttledProvider } from "./throttle";
 import * as path from "path";
 import { Rulecash } from "../target/types/rulecash";
 import idl from "../target/idl/rulecash.json";
@@ -54,7 +55,7 @@ function saveKeypair(name: string, kp: Keypair) {
 }
 
 async function main() {
-  const provider = anchor.AnchorProvider.env();
+  const provider = throttledProvider();
   anchor.setProvider(provider);
   const connection = provider.connection;
   const issuer = (provider.wallet as anchor.Wallet).payer;

@@ -10,7 +10,7 @@ import {
   loadFeed,
 } from "../lib/chain";
 
-const POLL_MS = 5000;
+const POLL_MS = 60000;
 
 function shortAddr(a: string) {
   return `${a.slice(0, 4)}…${a.slice(-4)}`;

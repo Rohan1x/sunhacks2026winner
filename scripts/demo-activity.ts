@@ -12,6 +12,7 @@ import {
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import * as fs from "fs";
+import { throttledProvider } from "./throttle";
 import * as path from "path";
 
 const DECIMALS = 6;
@@ -58,7 +59,7 @@ async function send(
 }
 
 async function main() {
-  const provider = anchor.AnchorProvider.env();
+  const provider = throttledProvider();
   const connection = provider.connection;
 
   const alpha = loadKey("grantee1");

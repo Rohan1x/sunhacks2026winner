@@ -155,7 +155,7 @@ function classify(tx: VersionedTransactionResponse, ok: boolean): Omit<FeedItem,
   return null; // setup or unrelated
 }
 
-export async function loadFeed(limit = 50): Promise<FeedItem[]> {
+export async function loadFeed(limit = 10): Promise<FeedItem[]> {
   const sigs = await connection.getSignaturesForAddress(MINT, { limit });
   const results = await Promise.all(
     sigs.map(async (s): Promise<FeedItem | null> => {

@@ -14,6 +14,7 @@ import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from
 import { TOKEN_2022_PROGRAM_ID, getAccount, getMint } from "@solana/spl-token";
 import * as fs from "fs";
 import * as path from "path";
+import { throttledProvider } from "./throttle";
 import { expect } from "chai";
 import { Rulecash } from "../target/types/rulecash";
 import idl from "../target/idl/rulecash.json";
@@ -36,8 +37,7 @@ const loadKey = (n: string) =>
 const DEC = 6;
 
 async function main() {
-  const base = anchor.AnchorProvider.env();
-  const provider = new anchor.AnchorProvider(base.connection, base.wallet, { commitment: "confirmed" });
+  const provider = throttledProvider();
   anchor.setProvider(provider);
   const conn = provider.connection;
   const program = new Program<Rulecash>(idl as Rulecash, provider);
