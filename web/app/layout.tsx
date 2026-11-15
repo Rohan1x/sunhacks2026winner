@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 export const metadata = {
-  title: "RuleCash",
+  title: "CashRules",
   description: "Money that enforces its own rules.",
 };
 
@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <header className="topbar">
-          <Link href="/" className="brand">RuleCash</Link>
+          <Link href="/" className="brand">CashRules</Link>
           <nav>
             <Link href="/">Dashboard</Link>
             <Link href="/pay">Pay</Link>

@@ -1,12 +1,12 @@
 [package]
-name = "rulecash"
+name = "cashrules"
 version = "0.1.0"
-description = "RuleCash: USDC-style grant tokens enforced by a Token-2022 transfer hook"
+description = "CashRules: USDC-style grant tokens enforced by a Token-2022 transfer hook"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "rulecash"
+name = "cashrules"
 
 [features]
 default = []

@@ -1,11 +1,11 @@
 /**
- * Seed a demo RuleCash grant on the cluster in ANCHOR_PROVIDER_URL (default: localnet).
+ * Seed a demo CashRules grant on the cluster in ANCHOR_PROVIDER_URL (default: localnet).
  *
  *   anchor build && npx ts-node scripts/seed.ts
  *
- * Creates: a mock USDC mint (Token-2022), a RuleCash mint with our transfer hook,
+ * Creates: a mock USDC mint (Token-2022), a CashRules mint with our transfer hook,
  * the grant, two approved merchants (one blocked category is left out on purpose),
- * two grantees funded with RuleCash, and writes:
+ * two grantees funded with CashRules, and writes:
  *   - scripts/.demo-keys/*.json   (demo keypairs, gitignored)
  *   - web/lib/demo.json           (public addresses for the web app)
  */
@@ -33,8 +33,8 @@ import {
 import * as fs from "fs";
 import { throttledProvider } from "./throttle";
 import * as path from "path";
-import { Rulecash } from "../target/types/rulecash";
-import idl from "../target/idl/rulecash.json";
+import { Cashrules } from "../target/types/cashrules";
+import idl from "../target/idl/cashrules.json";
 
 const DECIMALS = 6;
 const usd = (n: number) => new BN(Math.round(n * 10 ** DECIMALS));
@@ -59,16 +59,16 @@ async function main() {
   anchor.setProvider(provider);
   const connection = provider.connection;
   const issuer = (provider.wallet as anchor.Wallet).payer;
-  const program = new Program<Rulecash>(idl as Rulecash, provider);
+  const program = new Program<Cashrules>(idl as Cashrules, provider);
 
   const grantee1 = Keypair.generate();
   const grantee2 = Keypair.generate();
   const hardwareStore = Keypair.generate(); // category 1, approved
   const pizzaCo = Keypair.generate(); // category 0, approved
   const casino = Keypair.generate(); // category 5, added but blocked by grant
-  const rulecash = Keypair.generate();
+  const cashrules = Keypair.generate();
 
-  for (const [name, kp] of Object.entries({ grantee1, grantee2, hardwareStore, pizzaCo, casino, rulecash })) {
+  for (const [name, kp] of Object.entries({ grantee1, grantee2, hardwareStore, pizzaCo, casino, cashrules })) {
     saveKeypair(name, kp);
   }
 
@@ -86,42 +86,42 @@ async function main() {
   // Mock USDC (Token-2022, 6 decimals), issuer holds 10,000.
   const usdcMint = await createMint(connection, issuer, issuer.publicKey, null, DECIMALS, undefined, undefined, USDC_PROGRAM);
   const usdcAta = (owner: PublicKey) => getAssociatedTokenAddressSync(usdcMint, owner, false, USDC_PROGRAM);
-  const rcAta = (owner: PublicKey) => getAssociatedTokenAddressSync(rulecash.publicKey, owner, false, TOKEN_2022_PROGRAM_ID);
+  const rcAta = (owner: PublicKey) => getAssociatedTokenAddressSync(cashrules.publicKey, owner, false, TOKEN_2022_PROGRAM_ID);
 
-  const grantPda = PublicKey.findProgramAddressSync([Buffer.from("grant"), rulecash.publicKey.toBuffer()], program.programId)[0];
+  const grantPda = PublicKey.findProgramAddressSync([Buffer.from("grant"), cashrules.publicKey.toBuffer()], program.programId)[0];
   const vaultPda = getAssociatedTokenAddressSync(usdcMint, grantPda, true, USDC_PROGRAM);
-  const metaListPda = PublicKey.findProgramAddressSync([Buffer.from("extra-account-metas"), rulecash.publicKey.toBuffer()], program.programId)[0];
+  const metaListPda = PublicKey.findProgramAddressSync([Buffer.from("extra-account-metas"), cashrules.publicKey.toBuffer()], program.programId)[0];
   const merchantPda = (w: PublicKey) =>
-    PublicKey.findProgramAddressSync([Buffer.from("merchant"), rulecash.publicKey.toBuffer(), w.toBuffer()], program.programId)[0];
+    PublicKey.findProgramAddressSync([Buffer.from("merchant"), cashrules.publicKey.toBuffer(), w.toBuffer()], program.programId)[0];
   const spendPda = (w: PublicKey) =>
-    PublicKey.findProgramAddressSync([Buffer.from("spend"), rulecash.publicKey.toBuffer(), w.toBuffer()], program.programId)[0];
+    PublicKey.findProgramAddressSync([Buffer.from("spend"), cashrules.publicKey.toBuffer(), w.toBuffer()], program.programId)[0];
 
-  // RuleCash: transfer hook -> our program, mint authority -> grant PDA.
+  // CashRules: transfer hook -> our program, mint authority -> grant PDA.
   const mintLen = getMintLen([ExtensionType.TransferHook]);
   const lamports = await connection.getMinimumBalanceForRentExemption(mintLen);
   await provider.sendAndConfirm(
     new Transaction().add(
       SystemProgram.createAccount({
         fromPubkey: issuer.publicKey,
-        newAccountPubkey: rulecash.publicKey,
+        newAccountPubkey: cashrules.publicKey,
         space: mintLen,
         lamports,
         programId: TOKEN_2022_PROGRAM_ID,
       }),
-      createInitializeTransferHookInstruction(rulecash.publicKey, issuer.publicKey, program.programId, TOKEN_2022_PROGRAM_ID),
-      createInitializeMintInstruction(rulecash.publicKey, DECIMALS, grantPda, null, TOKEN_2022_PROGRAM_ID)
+      createInitializeTransferHookInstruction(cashrules.publicKey, issuer.publicKey, program.programId, TOKEN_2022_PROGRAM_ID),
+      createInitializeMintInstruction(cashrules.publicKey, DECIMALS, grantPda, null, TOKEN_2022_PROGRAM_ID)
     ),
-    [issuer, rulecash]
+    [issuer, cashrules]
   );
 
-  // Issuer USDC account + RuleCash/USDC accounts for everyone.
+  // Issuer USDC account + CashRules/USDC accounts for everyone.
   const everyone = [grantee1, grantee2, hardwareStore, pizzaCo, casino];
   await provider.sendAndConfirm(
     new Transaction().add(
       createAssociatedTokenAccountIdempotentInstruction(issuer.publicKey, usdcAta(issuer.publicKey), issuer.publicKey, usdcMint, USDC_PROGRAM),
       createMintToInstruction(usdcMint, usdcAta(issuer.publicKey), issuer.publicKey, BigInt(usd(10000).toString()), [], USDC_PROGRAM),
       ...everyone.flatMap((o) => [
-        createAssociatedTokenAccountIdempotentInstruction(issuer.publicKey, rcAta(o.publicKey), o.publicKey, rulecash.publicKey, TOKEN_2022_PROGRAM_ID),
+        createAssociatedTokenAccountIdempotentInstruction(issuer.publicKey, rcAta(o.publicKey), o.publicKey, cashrules.publicKey, TOKEN_2022_PROGRAM_ID),
         createAssociatedTokenAccountIdempotentInstruction(issuer.publicKey, usdcAta(o.publicKey), o.publicKey, usdcMint, USDC_PROGRAM),
       ])
     ),
@@ -133,7 +133,7 @@ async function main() {
     .initGrant(ALLOWED_CATEGORIES, DAILY_CAP)
     .accounts({
       issuer: issuer.publicKey,
-      mint: rulecash.publicKey,
+      mint: cashrules.publicKey,
       usdcMint,
       grant: grantPda,
       vault: vaultPda,
@@ -145,14 +145,14 @@ async function main() {
 
   await program.methods
     .initExtraAccountMetas()
-    .accounts({ issuer: issuer.publicKey, mint: rulecash.publicKey, grant: grantPda, extraAccountMetaList: metaListPda })
+    .accounts({ issuer: issuer.publicKey, mint: cashrules.publicKey, grant: grantPda, extraAccountMetaList: metaListPda })
     .rpc();
 
   // Merchants: two approved, one in a blocked category.
   const addMerchant = (w: PublicKey, category: number, cap: BN) =>
     program.methods
       .addMerchant(w, category, cap)
-      .accounts({ issuer: issuer.publicKey, mint: rulecash.publicKey, grant: grantPda, merchant: merchantPda(w) })
+      .accounts({ issuer: issuer.publicKey, mint: cashrules.publicKey, grant: grantPda, merchant: merchantPda(w) })
       .rpc();
   await addMerchant(hardwareStore.publicKey, CAT.HARDWARE, usd(200));
   await addMerchant(pizzaCo.publicKey, CAT.FOOD, usd(60));
@@ -162,17 +162,33 @@ async function main() {
   for (const g of [grantee1, grantee2]) {
     await program.methods
       .initSpend(g.publicKey)
-      .accounts({ payer: issuer.publicKey, mint: rulecash.publicKey, spend: spendPda(g.publicKey) })
+      .accounts({ payer: issuer.publicKey, mint: cashrules.publicKey, spend: spendPda(g.publicKey) })
       .rpc();
   }
 
-  // Fund grantees: USDC locked in vault, RuleCash minted 1:1.
+  // Exception escrow: the issuer's CashRules account holds escrowed out-of-policy payments until decided.
+  await provider.sendAndConfirm(
+    new Transaction().add(
+      createAssociatedTokenAccountIdempotentInstruction(issuer.publicKey, rcAta(issuer.publicKey), issuer.publicKey, cashrules.publicKey, TOKEN_2022_PROGRAM_ID)
+    ),
+    [issuer]
+  );
+  await program.methods
+    .setExceptionEscrow()
+    .accounts({ issuer: issuer.publicKey, mint: cashrules.publicKey, grant: grantPda, escrowToken: rcAta(issuer.publicKey) } as any)
+    .rpc();
+  await program.methods
+    .initSpend(issuer.publicKey)
+    .accounts({ payer: issuer.publicKey, mint: cashrules.publicKey, spend: spendPda(issuer.publicKey) })
+    .rpc();
+
+  // Fund grantees: USDC locked in vault, CashRules minted 1:1.
   const deposit = (to: Keypair, amount: BN) =>
     program.methods
       .depositAndMint(amount)
       .accounts({
         issuer: issuer.publicKey,
-        mint: rulecash.publicKey,
+        mint: cashrules.publicKey,
         usdcMint,
         grant: grantPda,
         issuerUsdc: usdcAta(issuer.publicKey),
@@ -190,7 +206,7 @@ async function main() {
     cluster: connection.rpcEndpoint,
     programId: program.programId.toBase58(),
     issuer: issuer.publicKey.toBase58(),
-    rulecashMint: rulecash.publicKey.toBase58(),
+    cashrulesMint: cashrules.publicKey.toBase58(),
     usdcMint: usdcMint.toBase58(),
     usdcTokenProgram: USDC_PROGRAM.toBase58(),
     grant: grantPda.toBase58(),
@@ -209,7 +225,7 @@ async function main() {
   };
   fs.mkdirSync(path.dirname(OUT_JSON), { recursive: true });
   fs.writeFileSync(OUT_JSON, JSON.stringify(out, null, 2));
-  console.log("Seeded RuleCash demo:");
+  console.log("Seeded CashRules demo:");
   console.log(JSON.stringify(out, null, 2));
 }
 

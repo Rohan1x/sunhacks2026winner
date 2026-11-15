@@ -16,8 +16,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { throttledProvider } from "./throttle";
 import { expect } from "chai";
-import { Rulecash } from "../target/types/rulecash";
-import idl from "../target/idl/rulecash.json";
+import { Cashrules } from "../target/types/cashrules";
+import idl from "../target/idl/cashrules.json";
 import {
   buildAddMerchant,
   buildFundGrantee,
@@ -40,7 +40,7 @@ async function main() {
   const provider = throttledProvider();
   anchor.setProvider(provider);
   const conn = provider.connection;
-  const program = new Program<Rulecash>(idl as Rulecash, provider);
+  const program = new Program<Cashrules>(idl as Cashrules, provider);
   const issuerKp = (provider.wallet as anchor.Wallet).payer;
   const issuer = issuerKp.publicKey;
 
@@ -77,7 +77,7 @@ async function main() {
   await mustPass(await buildSetPolicy(program, issuer, grantBefore.allowedCategories, originalCap), issuerKp);
   console.log("✓ setPolicy changes and restores the daily cap");
 
-  // 2. addMerchant for a fresh wallet. Its RuleCash account is created later by the pay builder.
+  // 2. addMerchant for a fresh wallet. Its CashRules account is created later by the pay builder.
   const newMerchant = Keypair.generate();
   await fundSol(newMerchant.publicKey, 0.05);
   await mustPass(await buildAddMerchant(program, issuer, newMerchant.publicKey, 0, 50), issuerKp);
@@ -101,12 +101,12 @@ async function main() {
   expect(await bal(rcAta(grantee3.publicKey))).to.equal(40);
   console.log("✓ fund brand-new grantee (ATA and spend counter in one transaction)");
 
-  // 5. New grantee pays the approved merchant. buildPay creates the merchant's RuleCash account if missing.
+  // 5. New grantee pays the approved merchant. buildPay creates the merchant's CashRules account if missing.
   expect(await run(buildPay(grantee3.publicKey, newMerchant.publicKey, 10), grantee3, [], false)).to.equal("");
   expect(await bal(rcAta(newMerchant.publicKey))).to.equal(10);
   console.log("✓ grantee pays approved merchant (merchant account created by the builder)");
 
-  // 6. Merchant redeems 5 RuleCash for USDC. Vault must still back supply.
+  // 6. Merchant redeems 5 CashRules for USDC. Vault must still back supply.
   const usdcBefore = await bal(usdcAta(newMerchant.publicKey), USDC_PROGRAM).catch(() => 0);
   await fundSol(newMerchant.publicKey, 0.02);
   await mustPass(await buildRedeem(program, newMerchant.publicKey, 5), newMerchant);

@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-rulecash = "3jea1uUS3qbgGYXLrUDirRUPN97qhPEF3A9c8vue3H9t"
+cashrules = "8uuvaV8HNBKFsDp2Dn7CnzaQDV59AebPJfAkzJUUFusC"
 
 [programs.devnet]
-rulecash = "3jea1uUS3qbgGYXLrUDirRUPN97qhPEF3A9c8vue3H9t"
+cashrules = "8uuvaV8HNBKFsDp2Dn7CnzaQDV59AebPJfAkzJUUFusC"
 
 [registry]
 url = "https://api.apr.dev"

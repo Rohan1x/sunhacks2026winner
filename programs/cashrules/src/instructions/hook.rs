@@ -179,9 +179,18 @@ pub fn transfer_hook_handler(ctx: Context<ExecuteTransferHook>, amount: u64) -> 
         require!(bool::from(ext.transferring), RuleError::NotTransferring);
     }
 
-    // 2. Destination must be an approved, active merchant.
+    // Exception escrow: deposits into the issuer's escrow account (a payer request) and transfers out of it
+    // (issuer decisions) follow the exception flow, not the spend rules. Only the issuer can move funds out.
     let mint_key = ctx.accounts.mint.key();
     let dest_owner = ctx.accounts.destination_token.owner;
+    let esc = ctx.accounts.grant.exception_escrow;
+    if esc != Pubkey::default()
+        && (ctx.accounts.destination_token.key() == esc || ctx.accounts.source_token.key() == esc)
+    {
+        return Ok(());
+    }
+
+    // 2. Destination must be an approved, active merchant.
     let merchant = load_active_merchant(
         &ctx.accounts.merchant.to_account_info(),
         &mint_key,

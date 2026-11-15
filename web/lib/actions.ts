@@ -5,12 +5,14 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
   createTransferCheckedInstruction,
 } from "@solana/spl-token";
-import type { Rulecash } from "./rulecash.types";
+import type { TransactionInstruction } from "@solana/web3.js";
+import type { Cashrules } from "./cashrules.types";
 import {
   GRANT,
   PROGRAM_ID,
+  exceptionPda,
   MINT,
-  RULECASH_DECIMALS,
+  CASHRULES_DECIMALS,
   USDC_MINT,
   USDC_PROGRAM,
   VAULT,
@@ -23,9 +25,9 @@ import {
 // Transaction builders shared by the web pages and scripts/web-smoke.ts.
 // Each returns an unsigned Transaction. Callers set blockhash and fee payer (prepare), sign, then send (sendSigned).
 
-export type Program_ = Program<Rulecash>;
+export type Program_ = Program<Cashrules>;
 
-export const toBase = (n: number) => new BN(Math.round(n * 10 ** RULECASH_DECIMALS));
+export const toBase = (n: number) => new BN(Math.round(n * 10 ** CASHRULES_DECIMALS));
 
 // Fill fee payer and a recent blockhash.
 export async function prepare(conn: Connection, tx: Transaction, feePayer: PublicKey): Promise<Transaction> {
@@ -34,7 +36,7 @@ export async function prepare(conn: Connection, tx: Transaction, feePayer: Publi
   return tx;
 }
 
-// Grantee pays a merchant. Creates the merchant's RuleCash account first.
+// Grantee pays a merchant. Creates the merchant's CashRules account first.
 //
 // The transfer hook's extra accounts are built here from the PDA seeds, not with
 // createTransferCheckedWithTransferHookInstruction. That helper reads the destination account at build time, so it
@@ -48,7 +50,7 @@ export function buildPay(owner: PublicKey, merchant: PublicKey, amount: number):
     rcAta(merchant),
     owner,
     BigInt(toBase(amount).toString()),
-    RULECASH_DECIMALS,
+    CASHRULES_DECIMALS,
     [],
     TOKEN_2022_PROGRAM_ID
   );
@@ -73,7 +75,7 @@ export function buildPay(owner: PublicKey, merchant: PublicKey, amount: number):
   return new Transaction().add(ataIx, ix);
 }
 
-// Approved merchant redeems RuleCash for USDC from the vault.
+// Approved merchant redeems CashRules for USDC from the vault.
 export function buildRedeem(program: Program_, merchant: PublicKey, amount: number) {
   return program.methods
     .redeem(toBase(amount))
@@ -83,7 +85,7 @@ export function buildRedeem(program: Program_, merchant: PublicKey, amount: numb
       usdcMint: USDC_MINT,
       grant: GRANT,
       merchantAccount: merchantPda(merchant),
-      merchantRulecash: rcAta(merchant),
+      merchantCashrules: rcAta(merchant),
       merchantUsdc: usdcAta(merchant),
       vault: VAULT,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
@@ -124,7 +126,7 @@ export function buildSetPolicy(program: Program_, issuer: PublicKey, allowedCate
     .transaction();
 }
 
-// Lock USDC and mint RuleCash to a grantee. Creates the grantee's accounts in the same transaction when missing.
+// Lock USDC and mint CashRules to a grantee. Creates the grantee's accounts in the same transaction when missing.
 export async function buildFundGrantee(
   program: Program_,
   issuer: PublicKey,
@@ -193,4 +195,85 @@ export async function sendSigned(conn: Connection, signed: Transaction, skipPref
     if (/expired|block height/i.test(text)) throw e;
   }
   return { signature, error: await errorFromChain(conn, signature) };
+}
+
+// Transfer with the transfer hook's extra accounts, derived from PDA seeds.
+// `owner` signs (and pays for the spend counter it names). `destOwner` is the wallet that receives the funds.
+// Same account order as buildPay (see that comment).
+export function hookTransfer(
+  owner: PublicKey,
+  sourceAccount: PublicKey,
+  destAccount: PublicKey,
+  destOwner: PublicKey,
+  amount: number
+): TransactionInstruction {
+  const ix = createTransferCheckedInstruction(
+    sourceAccount,
+    MINT,
+    destAccount,
+    owner,
+    BigInt(toBase(amount).toString()),
+    CASHRULES_DECIMALS,
+    [],
+    TOKEN_2022_PROGRAM_ID
+  );
+  const validationAccount = PublicKey.findProgramAddressSync(
+    [Buffer.from("extra-account-metas"), MINT.toBuffer()],
+    PROGRAM_ID
+  )[0];
+  ix.keys.push(
+    { pubkey: GRANT, isSigner: false, isWritable: false },
+    { pubkey: merchantPda(destOwner), isSigner: false, isWritable: false },
+    { pubkey: spendPda(owner), isSigner: false, isWritable: true },
+    { pubkey: PROGRAM_ID, isSigner: false, isWritable: false },
+    { pubkey: validationAccount, isSigner: false, isWritable: false }
+  );
+  return ix;
+}
+
+// Out-of-policy payment request, one transaction: move the payer's CashRules into the issuer's escrow,
+// then record the request with its reason. If the issuer declines, the escrowed amount is forfeited.
+export async function buildRequestException(
+  program: Program_,
+  payer: PublicKey,
+  merchant: PublicKey,
+  amount: number,
+  reason: string
+): Promise<Transaction> {
+  const grant = await program.account.grant.fetch(GRANT);
+  const escrow = grant.exceptionEscrow as PublicKey;
+  const id = Number(grant.exceptionCount.toString());
+  const transferIx = hookTransfer(payer, rcAta(payer), escrow, grant.issuer as PublicKey, amount);
+  const recordIx = await program.methods
+    .requestException(merchant, toBase(amount), reason)
+    .accountsPartial({
+      payer,
+      mint: MINT,
+      grant: GRANT,
+      escrowToken: escrow,
+      exception: exceptionPda(id),
+    })
+    .instruction();
+  return new Transaction().add(transferIx, recordIx);
+}
+
+// Issuer decision, one transaction. Approve: record it, then pay the requested merchant from escrow.
+// Reject: record it only; the escrowed funds stay with the issuer (the payer is charged).
+export async function buildDecideException(
+  program: Program_,
+  issuer: PublicKey,
+  id: number,
+  approve: boolean,
+  destinationWallet: PublicKey,
+  amount: number
+): Promise<Transaction> {
+  const grant = await program.account.grant.fetch(GRANT);
+  const escrow = grant.exceptionEscrow as PublicKey;
+  const recordIx = await (program.methods as any)[approve ? "approveException" : "rejectException"](new BN(id))
+    .accountsPartial({ issuer, mint: MINT, grant: GRANT, exception: exceptionPda(id) })
+    .instruction();
+  // Reject: the escrow is the issuer's own account, so the funds stay with the issuer. Only the status changes.
+  if (!approve) return new Transaction().add(recordIx);
+  const transferIx = hookTransfer(issuer, escrow, rcAta(destinationWallet), destinationWallet, amount);
+  return new Transaction().add(recordIx, transferIx);
 }

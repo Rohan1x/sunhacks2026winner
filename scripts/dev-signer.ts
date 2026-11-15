@@ -23,7 +23,7 @@ const byPubkey = new Map<string, Keypair>();
 const names: Record<string, string> = {};
 
 for (const file of fs.readdirSync(KEYS)) {
-  if (!file.endsWith(".json") || file === "rulecash.json") continue; // rulecash.json is the mint, not a wallet
+  if (!file.endsWith(".json") || file === "cashrules.json") continue; // cashrules.json is the mint, not a wallet
   const kp = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(path.join(KEYS, file), "utf8"))));
   const name = path.basename(file, ".json");
   byPubkey.set(kp.publicKey.toBase58(), kp);

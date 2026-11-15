@@ -22,6 +22,7 @@ import {
   sendSigned,
 } from "../../lib/actions";
 import { InjectedWallet, errorName, getInjected, walletProgram } from "../../lib/wallet";
+import ExceptionQueue from "./ExceptionQueue";
 
 type Status = { kind: "ok" | "bad" | "info"; text: string } | null;
 
@@ -256,9 +257,11 @@ export default function IssuerPage() {
         <p><button onClick={savePolicy} disabled={!isIssuer || busy}>Save policy</button></p>
       </div>
 
+      <ExceptionQueue wallet={wallet} issuer={owner} isIssuer={isIssuer} />
+
       <div className="card">
         <h2>Fund grantee</h2>
-        <p className="muted">Locks USDC in the vault and mints RuleCash 1:1 to the grantee.</p>
+        <p className="muted">Locks USDC in the vault and mints CashRules 1:1 to the grantee.</p>
         <div className="row">
           <div>
             <label className="muted" htmlFor="f-wallet">Grantee wallet</label>

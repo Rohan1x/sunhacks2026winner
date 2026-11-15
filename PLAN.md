@@ -1,11 +1,11 @@
-# RuleCash: Build Plan
+# CashRules: Build Plan
 
 > **Money that enforces its own rules.**
 > Grant funds that can only be spent at approved vendors, enforced by the token itself on Solana.
 
-This plan was first written before any code existed. It has been updated to match the repo as of commit `b234922`. Where the original plan turned out wrong, the change is noted in place. Current status lives in [README.md](README.md). A plain-language explainer exists locally at `docs/RULECASH-EXPLAINED.md` (not committed).
+This plan was first written before any code existed. It has been updated to match the repo as of commit `b234922`. Where the original plan turned out wrong, the change is noted in place. Current status lives in [README.md](README.md). A plain-language explainer exists locally at `docs/CASHRULES-EXPLAINED.md` (not committed).
 
-- **Program (devnet):** `3jea1uUS3qbgGYXLrUDirRUPN97qhPEF3A9c8vue3H9t`
+- **Program (devnet):** `8uuvaV8HNBKFsDp2Dn7CnzaQDV59AebPJfAkzJUUFusC`
 - **Live app:** https://rohan1x.github.io/sunhacks2026winner/
 
 Status key: **Done**, **In progress**, **Not started**, **Blocked** (waiting on a decision or dependency).
@@ -22,13 +22,13 @@ DAOs, NGOs, universities and companies hand out billions in grants, stipends and
 
 ## 2. The solution
 
-**RuleCash** is a Token-2022 token, backed 1:1 by USDC, with a **transfer hook** that runs on *every* transfer. If the recipient isn't an approved merchant, or the payment breaks a cap, the transfer fails on-chain. No app can route around it, because the rule lives in the token program.
+**CashRules** is a Token-2022 token, backed 1:1 by USDC, with a **transfer hook** that runs on *every* transfer. If the recipient isn't an approved merchant, or the payment breaks a cap, the transfer fails on-chain. No app can route around it, because the rule lives in the token program.
 
 | Actor | What they do |
 |---|---|
-| **Issuer** (DAO / NGO) | Deposits USDC, mints RuleCash to grantees, sets the rules, approves merchants |
-| **Grantee** | Spends RuleCash, but only at approved merchants and within caps |
-| **Merchant** | Gets paid, redeems RuleCash 1:1 for USDC (Solana Pay QR is not built yet) |
+| **Issuer** (DAO / NGO) | Deposits USDC, mints CashRules to grantees, sets the rules, approves merchants |
+| **Grantee** | Spends CashRules, but only at approved merchants and within caps |
+| **Merchant** | Gets paid, redeems CashRules 1:1 for USDC (Solana Pay QR is not built yet) |
 | **Public** | Watches a live, transparent spend feed |
 
 **Demo moment:** the grantee pays an approved vendor and it succeeds. The grantee tries to pay a blocked merchant or a random wallet and it is **rejected by the chain**. This already works on devnet with a stand-in wallet (`✓ Paid` / `✗ Blocked on-chain: CategoryBlocked`).
@@ -46,15 +46,15 @@ DAOs, NGOs, universities and companies hand out billions in grants, stipends and
 
 ## 4. Architecture
 
-**Changed from the original plan:** the plan had two programs (`rulecash_vault` and `rulecash_hook`) and allowed merging them. We merged them. There is one Anchor program, `rulecash`, which holds both the vault and the hook. The plan also had a Next.js server with API routes; the web app is a static export with no server, which is why Solana Pay and Blinks are not built (see section 7).
+**Changed from the original plan:** the plan had two programs (`cashrules_vault` and `cashrules_hook`) and allowed merging them. We merged them. There is one Anchor program, `cashrules`, which holds both the vault and the hook. The plan also had a Next.js server with API routes; the web app is a static export with no server, which is why Solana Pay and Blinks are not built (see section 7).
 
 ```
                 ┌──────────────────── Solana devnet ────────────────────────┐
-                │  rulecash program  3jea1uUS3qbg...vue3H9t                 │
+                │  cashrules program  8uuvaV8HNBKF...UUFusC                 │
  Issuer ──USDC──▶   init_grant, set_policy, add_merchant, set_merchant     │
                 │   init_spend, init_extra_account_metas                    │
-                │   deposit_and_mint: USDC -> vault PDA, mint RuleCash 1:1  │
-                │   redeem: merchant burns RuleCash, receives USDC          │
+                │   deposit_and_mint: USDC -> vault PDA, mint CashRules 1:1  │
+                │   redeem: merchant burns CashRules, receives USDC          │
                 │                                                           │
  Grantee ─pay──▶  Token-2022 transfer_checked                               │
                 │        │ (CPI, automatic)                                 │
@@ -77,7 +77,7 @@ DAOs, NGOs, universities and companies hand out billions in grants, stipends and
 
 | Account | Seeds | Purpose |
 |---|---|---|
-| `Grant` | `["grant", mint]` | Issuer, USDC mint, vault, category bitmask, daily cap. Also the RuleCash mint authority, so supply only grows through the vault |
+| `Grant` | `["grant", mint]` | Issuer, USDC mint, vault, category bitmask, daily cap. Also the CashRules mint authority, so supply only grows through the vault |
 | `Merchant` | `["merchant", mint, merchant_wallet]` | Category, per-tx cap, active flag |
 | `Spend` | `["spend", mint, grantee_wallet]` | Day index and spent-today counter (resets at midnight UTC) |
 | `ExtraAccountMetaList` | `["extra-account-metas", mint]` | Required by the transfer hook interface |
@@ -97,9 +97,9 @@ Redemption burns do not invoke the hook. Issuer clawback is not built (stretch g
 |---|---|
 | Grantee sends to a friend's wallet | **Done.** Blocked by the hook; test "blocks a transfer to a non-merchant wallet" |
 | Grantee approves a delegate | Delegated transfers still go through the hook by design. No delegate test exists |
-| Merchants stuck holding a restricted token | **Done.** `redeem` burns RuleCash for USDC 1:1 |
+| Merchants stuck holding a restricted token | **Done.** `redeem` burns CashRules for USDC 1:1 |
 | Unspent funds at grant end | **Not started.** `PermanentDelegate` clawback is a stretch goal |
-| Wallets don't resolve hook extra accounts | **Changed.** The original fix was a Solana Pay transaction request built on our server. There is no server. The pay page builds the hook accounts from PDA seeds in the browser instead (the SPL helper fails when the merchant has no RuleCash account yet) |
+| Wallets don't resolve hook extra accounts | **Changed.** The original fix was a Solana Pay transaction request built on our server. There is no server. The pay page builds the hook accounts from PDA seeds in the browser instead (the SPL helper fails when the merchant has no CashRules account yet) |
 | Blocked transfers leave no state | **Done.** Blocked attempts are sent with `skipPreflight: true`, land as failed transactions, and the feed shows the error name |
 
 ---
@@ -108,7 +108,7 @@ Redemption burns do not invoke the hook. Issuer clawback is not built (stretch g
 
 | Layer | Planned | Actual |
 |---|---|---|
-| Program | Anchor 0.30+, two programs | Anchor 0.31.1, one program `rulecash` |
+| Program | Anchor 0.30+, two programs | Anchor 0.31.1, one program `cashrules` |
 | Token | Token-2022 + TransferHook | Same. `PermanentDelegate` not used |
 | Mock USDC | Devnet mint we create | Token-2022 mock in tests and demo. Classic-token USDC path not exercised |
 | Client | web3.js, spl-token, anchor | Same (`@solana/web3.js` 1.x, `@solana/spl-token` 0.4, `@coral-xyz/anchor` 0.31) |
@@ -124,8 +124,8 @@ Redemption burns do not invoke the hook. Issuer clawback is not built (stretch g
 ## 6. Repo layout (actual)
 
 ```
-/programs/rulecash       # the single Anchor program: vault, rules, transfer hook
-/tests/rulecash.ts       # Anchor test suite (run in WSL)
+/programs/cashrules       # the single Anchor program: vault, rules, transfer hook
+/tests/cashrules.ts       # Anchor test suite (run in WSL)
 /scripts
   seed.ts                # build demo state on any cluster, writes web/lib/demo.json
   demo-activity.ts       # one paid, three blocked transfers for the feed
@@ -139,7 +139,7 @@ Redemption burns do not invoke the hook. Issuer clawback is not built (stretch g
   lib/actions.ts         # shared transaction builders
   lib/chain.ts           # chain reads, feed classification
   lib/wallet.ts          # injected wallet connector
-/docs/RULECASH-EXPLAINED.md  # local explainer, not committed
+/docs/CASHRULES-EXPLAINED.md  # local explainer, not committed
 /.github/workflows/pages.yml
 ```
 
@@ -209,7 +209,7 @@ Uses the seeded devnet state (grantee1, Pizza Co, Hardware Store, a blocked-cate
 ## 10. Pitch deck (5 slides; no deck in the repo, status otherwise unknown)
 
 1. Problem: restricted funds are enforced by trust.
-2. Solution: RuleCash, with one-line architecture.
+2. Solution: CashRules, with one-line architecture.
 3. Live demo.
 4. Why Solana: transfer hooks, sub-cent fees. Mention Solana Pay and Blinks only if they ship.
 5. Market + next steps: grant platforms, per-diems, allowances; real USDC, multisig issuer, audit, then mainnet.

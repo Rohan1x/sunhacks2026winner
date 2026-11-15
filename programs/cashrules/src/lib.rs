@@ -8,10 +8,10 @@ pub use errors::RuleError;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("3jea1uUS3qbgGYXLrUDirRUPN97qhPEF3A9c8vue3H9t");
+declare_id!("8uuvaV8HNBKFsDp2Dn7CnzaQDV59AebPJfAkzJUUFusC");
 
 #[program]
-pub mod rulecash {
+pub mod cashrules {
     use super::*;
 
     /// Issuer: register a grant for a Token-2022 mint whose TransferHook points at this program.
@@ -63,17 +63,43 @@ pub mod rulecash {
         instructions::hook::init_extra_account_metas_handler(ctx)
     }
 
-    /// Issuer: lock USDC in the vault and mint the same amount of RuleCash to a grantee (1:1 backing).
+    /// Issuer: lock USDC in the vault and mint the same amount of CashRules to a grantee (1:1 backing).
     pub fn deposit_and_mint(ctx: Context<DepositAndMint>, amount: u64) -> Result<()> {
         instructions::vault::deposit_and_mint_handler(ctx, amount)
     }
 
-    /// Approved merchant: burn RuleCash and receive USDC 1:1 from the vault.
+    /// Approved merchant: burn CashRules and receive USDC 1:1 from the vault.
     pub fn redeem(ctx: Context<Redeem>, amount: u64) -> Result<()> {
         instructions::vault::redeem_handler(ctx, amount)
     }
 
-    /// Token-2022 calls this on every transfer of a RuleCash mint. Reverts the transfer if any rule fails.
+    /// Issuer: set the token account that holds escrowed exception funds (issuer-owned RuleCash account).
+    pub fn set_exception_escrow(ctx: Context<SetExceptionEscrow>) -> Result<()> {
+        instructions::admin::set_exception_escrow_handler(ctx)
+    }
+
+    /// Payer: record an out-of-policy payment request with a reason. Send the payer's transfer into the
+    /// exception escrow earlier in the same transaction.
+    pub fn request_exception(
+        ctx: Context<RequestException>,
+        merchant: Pubkey,
+        amount: u64,
+        reason: String,
+    ) -> Result<()> {
+        instructions::exceptions::request_exception_handler(ctx, merchant, amount, reason)
+    }
+
+    /// Issuer: approve an exception. Send the escrow -> merchant transfer in the same transaction.
+    pub fn approve_exception(ctx: Context<ResolveException>, id: u64) -> Result<()> {
+        instructions::exceptions::approve_exception_handler(ctx, id)
+    }
+
+    /// Issuer: reject an exception. Send the escrow -> issuer transfer in the same transaction (the payer is charged).
+    pub fn reject_exception(ctx: Context<ResolveException>, id: u64) -> Result<()> {
+        instructions::exceptions::reject_exception_handler(ctx, id)
+    }
+
+    /// Token-2022 calls this on every transfer of a CashRules mint. Reverts the transfer if any rule fails.
     #[interface(spl_transfer_hook_interface::execute)]
     pub fn transfer_hook(ctx: Context<ExecuteTransferHook>, amount: u64) -> Result<()> {
         instructions::hook::transfer_hook_handler(ctx, amount)

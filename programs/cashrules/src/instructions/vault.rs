@@ -10,8 +10,8 @@ use crate::state::*;
 
 // ------------------------------------------------------------ deposit_and_mint
 
-/// Issuer locks USDC in the vault and mints the same amount of RuleCash to a grantee.
-/// Invariant: RuleCash supply == vault USDC balance (1:1 backing).
+/// Issuer locks USDC in the vault and mints the same amount of CashRules to a grantee.
+/// Invariant: CashRules supply == vault USDC balance (1:1 backing).
 #[derive(Accounts)]
 pub struct DepositAndMint<'info> {
     #[account(mut)]
@@ -40,7 +40,7 @@ pub struct DepositAndMint<'info> {
         associated_token::token_program = usdc_token_program
     )]
     pub vault: InterfaceAccount<'info, TokenAccount>,
-    /// CHECK: wallet receiving RuleCash. Does not sign.
+    /// CHECK: wallet receiving CashRules. Does not sign.
     pub grantee: UncheckedAccount<'info>,
     #[account(
         mut,
@@ -90,7 +90,7 @@ pub fn deposit_and_mint_handler(ctx: Context<DepositAndMint>, amount: u64) -> Re
 
 // ------------------------------------------------------------------- redeem
 
-/// Approved merchant burns RuleCash and receives USDC 1:1 from the vault.
+/// Approved merchant burns CashRules and receives USDC 1:1 from the vault.
 /// Burns do not invoke the transfer hook, so the spend rules do not apply here.
 /// Only approved merchants can redeem; a grantee cannot exit the grant by cashing out.
 #[derive(Accounts)]
@@ -118,7 +118,7 @@ pub struct Redeem<'info> {
         token::mint = mint,
         token::authority = merchant
     )]
-    pub merchant_rulecash: InterfaceAccount<'info, TokenAccount>,
+    pub merchant_cashrules: InterfaceAccount<'info, TokenAccount>,
     #[account(
         mut,
         token::mint = usdc_mint,
@@ -152,7 +152,7 @@ pub fn redeem_handler(ctx: Context<Redeem>, amount: u64) -> Result<()> {
             ctx.accounts.token_program.to_account_info(),
             BurnChecked {
                 mint: ctx.accounts.mint.to_account_info(),
-                from: ctx.accounts.merchant_rulecash.to_account_info(),
+                from: ctx.accounts.merchant_cashrules.to_account_info(),
                 authority: ctx.accounts.merchant.to_account_info(),
             },
         ),

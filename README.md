@@ -1,17 +1,17 @@
-# RuleCash
+# CashRules
 
-**Money that enforces its own rules.** RuleCash is a USDC-backed Solana Token-2022 token with a transfer hook. Grant funds can only be spent at approved merchants and within caps, and the chain itself rejects everything else.
+**Money that enforces its own rules.** CashRules is a USDC-backed Solana Token-2022 token with a transfer hook. Grant funds can only be spent at approved merchants and within caps, and the chain itself rejects everything else.
 
 Built at SunHacks 2026.
 
 - 📋 Full build plan: [PLAN.md](PLAN.md)
-- 🌐 Network: Solana devnet (program `3jea1uUS3qbgGYXLrUDirRUPN97qhPEF3A9c8vue3H9t`)
+- 🌐 Network: Solana devnet (program `8uuvaV8HNBKFsDp2Dn7CnzaQDV59AebPJfAkzJUUFusC`)
 - 🖥️ Live app: https://rohan1x.github.io/sunhacks2026winner/
 
 ## Status
 
 - ✅ Phase 1: transfer hook enforces merchant allowlist, category bitmask, per-tx cap and per-grantee daily cap.
-- ✅ Phase 2 (program): USDC vault. `deposit_and_mint` locks USDC and mints RuleCash 1:1. `redeem` lets approved merchants burn RuleCash for USDC. The RuleCash mint authority is the grant PDA, so supply can only grow through the vault.
+- ✅ Phase 2 (program): USDC vault. `deposit_and_mint` locks USDC and mints CashRules 1:1. `redeem` lets approved merchants burn CashRules for USDC. The CashRules mint authority is the grant PDA, so supply can only grow through the vault.
 - ✅ Deployed to devnet and seeded. Smoke test passes on devnet.
 - ✅ Web app: dashboard, pay, merchant and issuer pages. Static export, deployed by GitHub Actions to GitHub Pages. Live dashboard and pay page confirmed.
 - ✅ Wallet flow verified in the browser with a stand-in wallet (see "Testing without Phantom"): pay, blocked pay, merchant redeem, issuer fund.
@@ -25,13 +25,17 @@ Test notes: the mock USDC in tests is Token-2022. Classic-token ATA creation fai
 | Instruction | Who | Does |
 |---|---|---|
 | `init_grant` | issuer | Create grant PDA and USDC vault for a Token-2022 mint whose TransferHook points at this program and whose mint authority is the grant PDA |
-| `deposit_and_mint` | issuer | Move USDC into the vault and mint the same amount of RuleCash to a grantee |
-| `redeem` | approved merchant | Burn RuleCash and receive USDC 1:1 from the vault |
+| `deposit_and_mint` | issuer | Move USDC into the vault and mint the same amount of CashRules to a grantee |
+| `redeem` | approved merchant | Burn CashRules and receive USDC 1:1 from the vault |
 | `set_policy` | issuer | Set category bitmask and daily cap |
 | `add_merchant` / `set_merchant` | issuer | Approve merchant, set category, per-tx cap, active flag |
 | `init_spend` | anyone (pays rent) | Create per-grantee spend counter |
 | `init_extra_account_metas` | issuer | Register extra accounts Token-2022 passes to the hook |
 | `transfer_hook` | Token-2022 | Runs on every transfer; reverts if any rule fails |
+| `set_exception_escrow` | issuer | Choose the issuer-owned CashRules account that holds out-of-policy payments |
+| `request_exception` | payer | Record an out-of-policy payment with a reason (the payer's funds go to escrow in the same transaction) |
+| `approve_exception` | issuer | Mark a request approved; the escrowed funds are paid to the merchant in the same transaction |
+| `reject_exception` | issuer | Mark a request rejected; the escrowed funds stay with the issuer, so the payer is charged |
 
 Error names (`NotApprovedMerchant`, `CategoryBlocked`, `OverTxCap`, `OverDailyCap`, `NotTransferring`, `WrongTransferHookProgram`) show up in failed-transaction logs.
 
@@ -53,7 +57,7 @@ anchor test
 |---|---|---|
 | `/` | anyone | Grant state, backing check, merchants, live spend feed (paid, blocked with on-chain error name, funded, redeemed) |
 | `/pay` | grantee (Phantom) | Pay an approved merchant. Shows daily cap left. Rejections land on-chain and show in the feed |
-| `/merchant` | merchant (Phantom) | See approval status, redeem RuleCash for USDC |
+| `/merchant` | merchant (Phantom) | See approval status, redeem CashRules for USDC |
 | `/issuer` | issuer (Phantom) | Add, pause or reactivate merchants, set category policy and daily cap, fund grantees |
 
 Run it against a local validator:
@@ -70,10 +74,23 @@ Demo state is tied to the validator that was seeded (the local validator runs wi
 
 ### Notes on the write paths
 
-- Transaction builders live in `web/lib/actions.ts`. The pages and `scripts/web-smoke.ts` share them. The smoke test covers setPolicy, addMerchant, pause and reactivate, fund a new grantee, pay to a merchant with no RuleCash account yet, and redeem. It does not exercise the React UI or a browser wallet.
-- The pay transaction builds the transfer hook accounts from PDA seeds. The SPL helper reads the destination account at build time, which fails when the merchant has no RuleCash account yet.
+- Transaction builders live in `web/lib/actions.ts`. The pages and `scripts/web-smoke.ts` share them. The smoke test covers setPolicy, addMerchant, pause and reactivate, fund a new grantee, pay to a merchant with no CashRules account yet, and redeem. It does not exercise the React UI or a browser wallet.
+- The pay transaction builds the transfer hook accounts from PDA seeds. The SPL helper reads the destination account at build time, which fails when the merchant has no CashRules account yet.
 - The issuer console only shows write controls when the connected wallet is the grant issuer (`~/.config/solana/id.json` for the devnet deploy). Import that key into Phantom to use it.
 - If Phantom refuses to sign a transaction that fails its own simulation, use `scripts/demo-activity.ts` for the on-stage blocked demo. Not confirmed against real Phantom yet.
+
+## Exceptions (out-of-policy payments)
+
+A payer can ask for a payment the policy would block, such as a vendor outside the approved categories. The request needs a reason.
+
+1. **Request.** The payer's CashRules move into the issuer's escrow account and the request (with its reason) is recorded. Both happen in one transaction, so either both succeed or neither does.
+2. **Decision.** The issuer reviews the request in the issuer console.
+   - **Approve:** the escrowed amount is paid to the merchant, in the same transaction as the decision.
+   - **Reject:** the escrowed amount stays with the issuer, and the payer is charged for it.
+
+Why the transfers are split out: a Token-2022 transfer can't trigger this program's own transfer hook from inside the program, so the transfers run at the top level of each transaction. Exception amounts do not count toward the daily cap.
+
+Limits: the escrow account is the issuer's own account, so the issuer controls the funds. A payer who transfers CashRules straight into the escrow account (without a request) can't get them back.
 
 ## Using Phantom
 
@@ -113,5 +130,5 @@ Notes:
 Verified this way against devnet:
 - Pay Pizza Co (allowed): `✓ Paid`. Also confirmed on the live GitHub Pages site.
 - Pay the casino (blocked category): `✗ Blocked on-chain: CategoryBlocked`. Local build only.
-- Merchant redeems RuleCash for USDC. Local build only.
+- Merchant redeems CashRules for USDC. Local build only.
 - Issuer funds a grantee. Local build only.

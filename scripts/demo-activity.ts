@@ -29,7 +29,7 @@ async function send(
   amount: number,
   label: string
 ) {
-  const mint = new PublicKey(DEMO.rulecashMint);
+  const mint = new PublicKey(DEMO.cashrulesMint);
   const ix = await createTransferCheckedWithTransferHookInstruction(
     connection,
     getAssociatedTokenAddressSync(mint, from.publicKey, false, TOKEN_2022_PROGRAM_ID),

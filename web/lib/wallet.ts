@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { PublicKey, Transaction } from "@solana/web3.js";
-import idlJson from "./rulecash.json";
-import type { Rulecash } from "./rulecash.types";
+import idlJson from "./cashrules.json";
+import type { Cashrules } from "./cashrules.types";
 import { connection } from "./chain";
 
 // Minimal injected-wallet surface (Phantom and most Solana wallets expose window.solana / window.phantom.solana).
@@ -26,7 +26,7 @@ export function walletProgram(w: InjectedWallet, owner: PublicKey) {
     signAllTransactions: (txs: any[]) => w.signAllTransactions(txs),
   } as unknown as anchor.Wallet;
   const provider = new anchor.AnchorProvider(connection, wallet, { commitment: "confirmed" });
-  return new anchor.Program<Rulecash>(idlJson as Rulecash, provider);
+  return new anchor.Program<Cashrules>(idlJson as Cashrules, provider);
 }
 
 // Pull the on-chain error name out of a failed send or simulation.

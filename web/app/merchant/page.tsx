@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { TOKEN_2022_PROGRAM_ID, getAccount } from "@solana/spl-token";
 import {
-  RULECASH_DECIMALS,
+  CASHRULES_DECIMALS,
   USDC_PROGRAM,
   connection,
   merchantPda,
@@ -36,7 +36,7 @@ export default function MerchantPage() {
     }
     const bal = async (addr: PublicKey, prog: PublicKey) => {
       try {
-        return Number((await getAccount(connection, addr, "confirmed", prog)).amount) / 10 ** RULECASH_DECIMALS;
+        return Number((await getAccount(connection, addr, "confirmed", prog)).amount) / 10 ** CASHRULES_DECIMALS;
       } catch {
         return 0;
       }
@@ -81,7 +81,7 @@ export default function MerchantPage() {
       if (result.error) {
         setStatus({ kind: "bad", text: `✗ Redeem failed: ${result.error}` });
       } else {
-        setStatus({ kind: "ok", text: `✓ Redeemed ${value} RuleCash for USDC. ${result.signature.slice(0, 8)}…` });
+        setStatus({ kind: "ok", text: `✓ Redeemed ${value} CashRules for USDC. ${result.signature.slice(0, 8)}…` });
       }
       await refresh(owner);
     } catch (e: any) {
@@ -95,7 +95,7 @@ export default function MerchantPage() {
     <>
       <h1>Merchant</h1>
       <p className="muted">
-        Approved merchants redeem RuleCash for USDC 1:1 from the vault. Redemption is only open to approved merchants, so
+        Approved merchants redeem CashRules for USDC 1:1 from the vault. Redemption is only open to approved merchants, so
         grantees cannot cash out and escape the grant rules.
       </p>
 
@@ -114,14 +114,14 @@ export default function MerchantPage() {
               {approved === null ? "…" : approved ? <span className="ok">approved merchant</span> : <span className="bad">not an approved merchant</span>}
             </p>
             <p>
-              RuleCash: <strong>{rc ?? "…"}</strong> · USDC: <strong>{usdc ?? "…"}</strong>
+              CashRules: <strong>{rc ?? "…"}</strong> · USDC: <strong>{usdc ?? "…"}</strong>
             </p>
           </div>
 
           <div className="card">
             <div className="row">
               <div>
-                <label className="muted" htmlFor="redeem-amount">Amount to redeem (RuleCash = USDC)</label>
+                <label className="muted" htmlFor="redeem-amount">Amount to redeem (CashRules = USDC)</label>
                 <input id="redeem-amount" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
               </div>
             </div>

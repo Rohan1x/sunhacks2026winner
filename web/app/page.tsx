@@ -73,14 +73,14 @@ export default function Dashboard() {
       <h1>Grant dashboard</h1>
       <p className="muted">
         Cluster: <span className="mono">{DEMO.cluster}</span> · Mint:{" "}
-        <span className="mono">{shortAddr(DEMO.rulecashMint)}</span>
+        <span className="mono">{shortAddr(DEMO.cashrulesMint)}</span>
       </p>
       {error && <div className="card bad">Could not load chain state: {error}</div>}
 
       {dash && (
         <div className="grid">
           <div className="card stat">
-            <div className="muted">RuleCash supply</div>
+            <div className="muted">CashRules supply</div>
             <div className="value">{dash.supply.toLocaleString()}</div>
           </div>
           <div className="card stat">
@@ -142,7 +142,7 @@ export default function Dashboard() {
 
       <div className="card">
         <h2>Live spend feed</h2>
-        <p className="muted">Every RuleCash transfer and redemption, paid or rejected by the chain.</p>
+        <p className="muted">Every CashRules transfer and redemption, paid or rejected by the chain.</p>
         <table>
           <thead>
             <tr>

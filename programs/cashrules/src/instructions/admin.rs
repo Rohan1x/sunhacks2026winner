@@ -13,7 +13,7 @@ use crate::state::*;
 pub struct InitGrant<'info> {
     #[account(mut)]
     pub issuer: Signer<'info>,
-    /// RuleCash mint. Must have TransferHook -> this program and mint authority = grant PDA.
+    /// CashRules mint. Must have TransferHook -> this program and mint authority = grant PDA.
     pub mint: InterfaceAccount<'info, Mint>,
     pub usdc_mint: InterfaceAccount<'info, Mint>,
     #[account(
@@ -57,6 +57,8 @@ pub fn init_grant_handler(ctx: Context<InitGrant>, allowed_categories: u32, dail
     grant.usdc_mint = ctx.accounts.usdc_mint.key();
     grant.allowed_categories = allowed_categories;
     grant.daily_cap = daily_cap;
+    grant.exception_count = 0;
+    grant.exception_escrow = Pubkey::default();
     grant.bump = ctx.bumps.grant;
     Ok(())
 }
@@ -192,5 +194,29 @@ pub fn init_spend_handler(ctx: Context<InitSpend>, grantee: Pubkey) -> Result<()
     spend.day_index = 0;
     spend.spent_today = 0;
     spend.bump = ctx.bumps.spend;
+    Ok(())
+}
+
+// ---------------------------------------------------------------- set_exception_escrow
+
+#[derive(Accounts)]
+pub struct SetExceptionEscrow<'info> {
+    pub issuer: Signer<'info>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(
+        mut,
+        has_one = issuer,
+        has_one = mint,
+        seeds = [GRANT_SEED, mint.key().as_ref()],
+        bump = grant.bump
+    )]
+    pub grant: Account<'info, Grant>,
+    /// Issuer-owned RuleCash token account that will hold escrowed exception funds.
+    #[account(token::mint = mint, token::authority = issuer)]
+    pub escrow_token: InterfaceAccount<'info, TokenAccount>,
+}
+
+pub fn set_exception_escrow_handler(ctx: Context<SetExceptionEscrow>) -> Result<()> {
+    ctx.accounts.grant.exception_escrow = ctx.accounts.escrow_token.key();
     Ok(())
 }
