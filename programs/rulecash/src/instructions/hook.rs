@@ -36,6 +36,32 @@ pub fn verify_mint_hook_points_here(mint: &AccountInfo) -> Result<()> {
     Ok(())
 }
 
+/// Load a merchant PDA and require it to be the approved, active merchant for `wallet`.
+/// Used by the transfer hook (destination) and by redeem (signing merchant).
+pub fn load_active_merchant(
+    merchant_info: &AccountInfo,
+    mint: &Pubkey,
+    wallet: &Pubkey,
+) -> Result<Merchant> {
+    let (expected, _) = Pubkey::find_program_address(
+        &[MERCHANT_SEED, mint.as_ref(), wallet.as_ref()],
+        &crate::ID,
+    );
+    require_keys_eq!(merchant_info.key(), expected, RuleError::NotApprovedMerchant);
+    require!(
+        *merchant_info.owner == crate::ID && !merchant_info.data_is_empty(),
+        RuleError::NotApprovedMerchant
+    );
+    let merchant = {
+        let data = merchant_info.try_borrow_data()?;
+        Merchant::try_deserialize(&mut &data[..])
+            .map_err(|_| error!(RuleError::NotApprovedMerchant))?
+    };
+    require!(merchant.active, RuleError::NotApprovedMerchant);
+    require_keys_eq!(merchant.wallet, *wallet, RuleError::NotApprovedMerchant);
+    Ok(merchant)
+}
+
 // ------------------------------------------------ init_extra_account_metas
 
 #[derive(Accounts)]
@@ -156,27 +182,11 @@ pub fn transfer_hook_handler(ctx: Context<ExecuteTransferHook>, amount: u64) -> 
     // 2. Destination must be an approved, active merchant.
     let mint_key = ctx.accounts.mint.key();
     let dest_owner = ctx.accounts.destination_token.owner;
-    let (expected_merchant, _) = Pubkey::find_program_address(
-        &[MERCHANT_SEED, mint_key.as_ref(), dest_owner.as_ref()],
-        &crate::ID,
-    );
-    let merchant_info = ctx.accounts.merchant.to_account_info();
-    require_keys_eq!(
-        merchant_info.key(),
-        expected_merchant,
-        RuleError::NotApprovedMerchant
-    );
-    require!(
-        *merchant_info.owner == crate::ID && !merchant_info.data_is_empty(),
-        RuleError::NotApprovedMerchant
-    );
-    let merchant = {
-        let data = merchant_info.try_borrow_data()?;
-        Merchant::try_deserialize(&mut &data[..])
-            .map_err(|_| error!(RuleError::NotApprovedMerchant))?
-    };
-    require!(merchant.active, RuleError::NotApprovedMerchant);
-    require_keys_eq!(merchant.wallet, dest_owner, RuleError::NotApprovedMerchant);
+    let merchant = load_active_merchant(
+        &ctx.accounts.merchant.to_account_info(),
+        &mint_key,
+        &dest_owner,
+    )?;
 
     // 3. Category must be allowed by the grant.
     let grant = &ctx.accounts.grant;

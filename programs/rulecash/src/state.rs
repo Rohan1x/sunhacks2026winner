@@ -11,7 +11,10 @@ pub const MAX_CATEGORY: u8 = 31;
 #[derive(InitSpace)]
 pub struct Grant {
     pub issuer: Pubkey,
+    /// RuleCash (Token-2022) mint. Its mint authority is this grant PDA.
     pub mint: Pubkey,
+    /// Backing asset (USDC). Reserve lives in the grant PDA's ATA for this mint.
+    pub usdc_mint: Pubkey,
     /// Bitmask: bit N set => merchants in category N are allowed.
     pub allowed_categories: u32,
     /// Max total spend per grantee per UTC day, in base units.

@@ -63,6 +63,16 @@ pub mod rulecash {
         instructions::hook::init_extra_account_metas_handler(ctx)
     }
 
+    /// Issuer: lock USDC in the vault and mint the same amount of RuleCash to a grantee (1:1 backing).
+    pub fn deposit_and_mint(ctx: Context<DepositAndMint>, amount: u64) -> Result<()> {
+        instructions::vault::deposit_and_mint_handler(ctx, amount)
+    }
+
+    /// Approved merchant: burn RuleCash and receive USDC 1:1 from the vault.
+    pub fn redeem(ctx: Context<Redeem>, amount: u64) -> Result<()> {
+        instructions::vault::redeem_handler(ctx, amount)
+    }
+
     /// Token-2022 calls this on every transfer of a RuleCash mint. Reverts the transfer if any rule fails.
     #[interface(spl_transfer_hook_interface::execute)]
     pub fn transfer_hook(ctx: Context<ExecuteTransferHook>, amount: u64) -> Result<()> {

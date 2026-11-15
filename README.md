@@ -9,14 +9,19 @@ Built at SunHacks 2026.
 
 ## Status
 
-- ✅ Phase 1–2 (program): `rulecash` Anchor program. Transfer hook enforces merchant allowlist, category bitmask, per-tx cap and per-grantee daily cap. Grant/merchant admin instructions included.
-- ⏳ Not yet: USDC vault (`deposit_and_mint` / `redeem`), app, Solana Pay, Blinks.
+- ✅ Phase 1: transfer hook enforces merchant allowlist, category bitmask, per-tx cap and per-grantee daily cap.
+- ✅ Phase 2 (program): USDC vault. `deposit_and_mint` locks USDC and mints RuleCash 1:1. `redeem` lets approved merchants burn RuleCash for USDC. The RuleCash mint authority is the grant PDA, so supply can only grow through the vault.
+- ⏳ Not yet: devnet deploy and seed script, app, Solana Pay, Blinks.
+
+Test notes: the mock USDC in tests is Token-2022. Classic-token ATA creation fails on the local Agave 4.x validator, so the classic-token path (`usdc_token_program = Tokenkeg…`) is not exercised by the suite yet.
 
 ## Program
 
 | Instruction | Who | Does |
 |---|---|---|
-| `init_grant` | issuer | Create grant PDA for a Token-2022 mint whose TransferHook points at this program |
+| `init_grant` | issuer | Create grant PDA and USDC vault for a Token-2022 mint whose TransferHook points at this program and whose mint authority is the grant PDA |
+| `deposit_and_mint` | issuer | Move USDC into the vault and mint the same amount of RuleCash to a grantee |
+| `redeem` | approved merchant | Burn RuleCash and receive USDC 1:1 from the vault |
 | `set_policy` | issuer | Set category bitmask and daily cap |
 | `add_merchant` / `set_merchant` | issuer | Approve merchant, set category, per-tx cap, active flag |
 | `init_spend` | anyone (pays rent) | Create per-grantee spend counter |

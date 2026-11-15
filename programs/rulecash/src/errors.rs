@@ -16,4 +16,10 @@ pub enum RuleError {
     WrongTransferHookProgram,
     #[msg("Category must be between 0 and 31")]
     InvalidCategory,
+    #[msg("RuleCash mint authority must be the grant PDA")]
+    MintAuthorityMismatch,
+    #[msg("RuleCash and USDC must have the same decimals")]
+    DecimalsMismatch,
+    #[msg("Amount must be greater than zero")]
+    ZeroAmount,
 }

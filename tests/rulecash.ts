@@ -8,25 +8,31 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
   ExtensionType,
   TOKEN_2022_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
   createInitializeMintInstruction,
   createInitializeTransferHookInstruction,
+  createMint,
   createMintToInstruction,
   createTransferCheckedWithTransferHookInstruction,
-  getAssociatedTokenAddressSync,
-  getMintLen,
   getAccount,
+  getAssociatedTokenAddressSync,
+  getMint,
+  getMintLen,
 } from "@solana/spl-token";
 import { expect } from "chai";
 import { Rulecash } from "../target/types/rulecash";
 
 const DECIMALS = 6;
+// Backing asset token program. Mock USDC is Token-2022 here: classic-token ATA creation
+// fails on the local Agave 4.x validator. Program supports both via token_interface.
+const USDC_PROGRAM = TOKEN_2022_PROGRAM_ID;
 const usd = (n: number) => new BN(Math.round(n * 10 ** DECIMALS));
 
 describe("rulecash", () => {
-  // Use confirmed commitment so balance reads right after a send see the new state.
+  // Confirmed commitment so reads right after a send see the new state.
   const base = anchor.AnchorProvider.env();
   const provider = new anchor.AnchorProvider(base.connection, base.wallet, {
     commitment: "confirmed",
@@ -42,20 +48,27 @@ describe("rulecash", () => {
   const merchant = Keypair.generate(); // category 1 (approved)
   const merchantOther = Keypair.generate(); // category 5 (blocked by grant)
   const stranger = Keypair.generate(); // never approved
-  const mint = Keypair.generate();
+  const mint = Keypair.generate(); // RuleCash (Token-2022, transfer hook)
 
-  const CAT_FOOD = 1; // bit 1
-  const CAT_CASINO = 5; // bit 5, not allowed
+  const CAT_FOOD = 1;
+  const CAT_CASINO = 5;
   const ALLOWED = 1 << CAT_FOOD;
   const DAILY_CAP = usd(500);
 
+  // Backing asset: classic SPL token, 6 decimals.
+  let usdcMint: PublicKey;
+
+  // ---- address helpers
   const ata = (owner: PublicKey) =>
     getAssociatedTokenAddressSync(mint.publicKey, owner, false, TOKEN_2022_PROGRAM_ID);
-
+  const usdcAta = (owner: PublicKey) =>
+    getAssociatedTokenAddressSync(usdcMint, owner, false, USDC_PROGRAM);
   const pda = (seeds: (Buffer | Uint8Array)[]) =>
     PublicKey.findProgramAddressSync(seeds, program.programId)[0];
 
   const grantPda = pda([Buffer.from("grant"), mint.publicKey.toBuffer()]);
+  // Set in before(), once usdcMint exists.
+  let vaultPda: PublicKey;
   const metaListPda = pda([Buffer.from("extra-account-metas"), mint.publicKey.toBuffer()]);
   const merchantPda = (wallet: PublicKey) =>
     pda([Buffer.from("merchant"), mint.publicKey.toBuffer(), wallet.toBuffer()]);
@@ -91,43 +104,107 @@ describe("rulecash", () => {
     return provider.sendAndConfirm(new Transaction().add(ix), [from]);
   }
 
+  // Issuer locks USDC and mints RuleCash to `to`.
+  const depositAndMint = (to: PublicKey, amount: BN) =>
+    program.methods
+      .depositAndMint(amount)
+      .accounts({
+        issuer: issuer.publicKey,
+        mint: mint.publicKey,
+        usdcMint,
+        grant: grantPda,
+        issuerUsdc: usdcAta(issuer.publicKey),
+        vault: vaultPda,
+        grantee: to,
+        granteeToken: ata(to),
+        usdcTokenProgram: USDC_PROGRAM,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+      })
+      .rpc();
+
+  const redeem = (merchantKp: Keypair, amount: BN) =>
+    program.methods
+      .redeem(amount)
+      .accounts({
+        merchant: merchantKp.publicKey,
+        mint: mint.publicKey,
+        usdcMint,
+        grant: grantPda,
+        merchantAccount: merchantPda(merchantKp.publicKey),
+        merchantRulecash: ata(merchantKp.publicKey),
+        merchantUsdc: usdcAta(merchantKp.publicKey),
+        vault: vaultPda,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+        usdcTokenProgram: USDC_PROGRAM,
+      })
+      .signers([merchantKp])
+      .rpc();
+
+  // Token-2022 mint with TransferHook pointing at this program and the given mint authority.
+  async function createHookMint(kp: Keypair, mintAuthority: PublicKey) {
+    const mintLen = getMintLen([ExtensionType.TransferHook]);
+    const lamports = await connection.getMinimumBalanceForRentExemption(mintLen);
+    await provider.sendAndConfirm(
+      new Transaction().add(
+        SystemProgram.createAccount({
+          fromPubkey: issuer.publicKey,
+          newAccountPubkey: kp.publicKey,
+          space: mintLen,
+          lamports,
+          programId: TOKEN_2022_PROGRAM_ID,
+        }),
+        createInitializeTransferHookInstruction(
+          kp.publicKey,
+          issuer.publicKey,
+          program.programId,
+          TOKEN_2022_PROGRAM_ID
+        ),
+        createInitializeMintInstruction(
+          kp.publicKey,
+          DECIMALS,
+          mintAuthority,
+          null,
+          TOKEN_2022_PROGRAM_ID
+        )
+      ),
+      [issuer, kp]
+    );
+  }
+
   before(async () => {
     for (const kp of [grantee, grantee2, merchant, merchantOther, stranger]) {
       const sig = await connection.requestAirdrop(kp.publicKey, 2 * LAMPORTS_PER_SOL);
       await connection.confirmTransaction(sig, "confirmed");
     }
 
-    // Token-2022 mint with TransferHook pointing at our program.
-    const mintLen = getMintLen([ExtensionType.TransferHook]);
-    const lamports = await connection.getMinimumBalanceForRentExemption(mintLen);
+    // USDC-like backing asset.
+    usdcMint = await createMint(connection, issuer, issuer.publicKey, null, DECIMALS, undefined, undefined, USDC_PROGRAM);
+    vaultPda = getAssociatedTokenAddressSync(usdcMint, grantPda, true, USDC_PROGRAM);
     await provider.sendAndConfirm(
-      new Transaction()
-        .add(
-          SystemProgram.createAccount({
-            fromPubkey: issuer.publicKey,
-            newAccountPubkey: mint.publicKey,
-            space: mintLen,
-            lamports,
-            programId: TOKEN_2022_PROGRAM_ID,
-          }),
-          createInitializeTransferHookInstruction(
-            mint.publicKey,
-            issuer.publicKey,
-            program.programId,
-            TOKEN_2022_PROGRAM_ID
-          ),
-          createInitializeMintInstruction(
-            mint.publicKey,
-            DECIMALS,
-            issuer.publicKey,
-            null,
-            TOKEN_2022_PROGRAM_ID
-          )
+      new Transaction().add(
+        createAssociatedTokenAccountIdempotentInstruction(
+          issuer.publicKey,
+          usdcAta(issuer.publicKey),
+          issuer.publicKey,
+          usdcMint,
+          USDC_PROGRAM
         ),
-      [issuer, mint]
+        createMintToInstruction(
+          usdcMint,
+          usdcAta(issuer.publicKey),
+          issuer.publicKey,
+          BigInt(usd(10000).toString()),
+          [],
+          USDC_PROGRAM
+        )
+      ),
+      [issuer]
     );
 
-    // Token accounts for everyone, then mint 1000 RuleCash to the grantee.
+    // RuleCash mint: mint authority is the grant PDA, so only deposit_and_mint can issue.
+    await createHookMint(mint, grantPda);
+
+    // Token accounts for RuleCash and USDC.
     const owners = [grantee, grantee2, merchant, merchantOther, stranger];
     await provider.sendAndConfirm(
       new Transaction().add(
@@ -140,13 +217,14 @@ describe("rulecash", () => {
             TOKEN_2022_PROGRAM_ID
           )
         ),
-        createMintToInstruction(
-          mint.publicKey,
-          ata(grantee.publicKey),
-          issuer.publicKey,
-          BigInt(usd(1000).toString()),
-          [],
-          TOKEN_2022_PROGRAM_ID
+        ...owners.map((o) =>
+          createAssociatedTokenAccountIdempotentInstruction(
+            issuer.publicKey,
+            usdcAta(o.publicKey),
+            o.publicKey,
+            usdcMint,
+            USDC_PROGRAM
+          )
         )
       ),
       [issuer]
@@ -155,7 +233,16 @@ describe("rulecash", () => {
     // Program setup.
     await program.methods
       .initGrant(ALLOWED, DAILY_CAP)
-      .accounts({ issuer: issuer.publicKey, mint: mint.publicKey, grant: grantPda })
+      .accounts({
+        issuer: issuer.publicKey,
+        mint: mint.publicKey,
+        usdcMint,
+        grant: grantPda,
+        vault: vaultPda,
+        usdcTokenProgram: USDC_PROGRAM,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
       .rpc();
 
     await program.methods
@@ -194,7 +281,67 @@ describe("rulecash", () => {
         .accounts({ payer: issuer.publicKey, mint: mint.publicKey, spend: spendPda(g.publicKey) })
         .rpc();
     }
+
+    // Fund grantees: USDC locked in vault, RuleCash minted 1:1.
+    await depositAndMint(grantee.publicKey, usd(1000));
+    await depositAndMint(grantee2.publicKey, usd(1000));
   });
+
+  // ------------------------------------------------------------ backing
+
+  it("deposit_and_mint locks USDC 1:1 and mints RuleCash", async () => {
+    const vault = await getAccount(connection, vaultPda, "confirmed", USDC_PROGRAM);
+    expect(vault.amount.toString()).to.equal(usd(2000).toString());
+    const g = await getAccount(connection, ata(grantee.publicKey), "confirmed", TOKEN_2022_PROGRAM_ID);
+    expect(g.amount.toString()).to.equal(usd(1000).toString());
+  });
+
+  it("rejects deposit_and_mint from a non-issuer", async () => {
+    await expectRevert(
+      program.methods
+        .depositAndMint(usd(1))
+        .accounts({
+          issuer: grantee.publicKey,
+          mint: mint.publicKey,
+          usdcMint,
+          grant: grantPda,
+          issuerUsdc: usdcAta(grantee.publicKey),
+          vault: vaultPda,
+          grantee: grantee.publicKey,
+          granteeToken: ata(grantee.publicKey),
+          usdcTokenProgram: USDC_PROGRAM,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([grantee])
+        .rpc(),
+      "ConstraintHasOne"
+    );
+  });
+
+  it("rejects init_grant when the RuleCash mint authority is not the grant PDA", async () => {
+    const badMint = Keypair.generate();
+    await createHookMint(badMint, issuer.publicKey); // issuer, not the grant PDA
+    const badGrant = pda([Buffer.from("grant"), badMint.publicKey.toBuffer()]);
+    const badVault = getAssociatedTokenAddressSync(usdcMint, badGrant, true, USDC_PROGRAM);
+    await expectRevert(
+      program.methods
+        .initGrant(ALLOWED, DAILY_CAP)
+        .accounts({
+          issuer: issuer.publicKey,
+          mint: badMint.publicKey,
+          usdcMint,
+          grant: badGrant,
+          vault: badVault,
+          usdcTokenProgram: USDC_PROGRAM,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc(),
+      "MintAuthorityMismatch"
+    );
+  });
+
+  // ------------------------------------------------------------ spend rules
 
   it("allows a payment to an approved merchant within caps", async () => {
     await transferRuleCash(grantee, ata(merchant.publicKey), usd(150));
@@ -223,21 +370,7 @@ describe("rulecash", () => {
   });
 
   it("tracks the daily cap separately per grantee", async () => {
-    // grantee is at its cap, but grantee2 has its own fresh counter.
-    // grantee2 needs funds first (issuer mints to it).
-    await provider.sendAndConfirm(
-      new Transaction().add(
-        createMintToInstruction(
-          mint.publicKey,
-          ata(grantee2.publicKey),
-          issuer.publicKey,
-          BigInt(usd(1000).toString()),
-          [],
-          TOKEN_2022_PROGRAM_ID
-        )
-      ),
-      [issuer]
-    );
+    // grantee is at its cap; grantee2 has its own counter.
     await transferRuleCash(grantee2, ata(merchant.publicKey), usd(200));
     const spend = await program.account.spend.fetch(spendPda(grantee2.publicKey));
     expect(spend.spentToday.toString()).to.equal(usd(200).toString());
@@ -249,6 +382,8 @@ describe("rulecash", () => {
       .accounts({ issuer: issuer.publicKey, mint: mint.publicKey, grant: grantPda, merchant: merchantPda(merchant.publicKey) })
       .rpc();
     await expectRevert(transferRuleCash(grantee2, ata(merchant.publicKey), usd(10)), "NotApprovedMerchant");
+    // Deactivated merchants cannot redeem either.
+    await expectRevert(redeem(merchant, usd(1)), "NotApprovedMerchant");
 
     await program.methods
       .setMerchant(merchant.publicKey, CAT_FOOD, usd(200), true)
@@ -261,23 +396,47 @@ describe("rulecash", () => {
   });
 
   it("rejects a non-issuer trying to add a merchant", async () => {
-    const attacker = grantee2;
     const target = Keypair.generate();
-    let failed = false;
-    try {
-      await program.methods
+    await expectRevert(
+      program.methods
         .addMerchant(target.publicKey, CAT_FOOD, usd(100))
         .accounts({
-          issuer: attacker.publicKey,
+          issuer: grantee2.publicKey,
           mint: mint.publicKey,
           grant: grantPda,
           merchant: merchantPda(target.publicKey),
         })
-        .signers([attacker])
-        .rpc();
-    } catch (_e) {
-      failed = true;
-    }
-    expect(failed).to.equal(true);
+        .signers([grantee2])
+        .rpc(),
+      "ConstraintHasOne"
+    );
+  });
+
+  // ------------------------------------------------------------ redeem
+
+  it("approved merchant redeems RuleCash 1:1 for USDC", async () => {
+    const vaultBefore = (await getAccount(connection, vaultPda, "confirmed", USDC_PROGRAM)).amount;
+    const usdcBefore = (await getAccount(connection, usdcAta(merchant.publicKey), "confirmed", USDC_PROGRAM)).amount;
+    const rcBefore = (await getAccount(connection, ata(merchant.publicKey), "confirmed", TOKEN_2022_PROGRAM_ID)).amount;
+
+    await redeem(merchant, usd(100));
+
+    const vaultAfter = (await getAccount(connection, vaultPda, "confirmed", USDC_PROGRAM)).amount;
+    const usdcAfter = (await getAccount(connection, usdcAta(merchant.publicKey), "confirmed", USDC_PROGRAM)).amount;
+    const rcAfter = (await getAccount(connection, ata(merchant.publicKey), "confirmed", TOKEN_2022_PROGRAM_ID)).amount;
+
+    expect((vaultBefore - vaultAfter).toString()).to.equal(usd(100).toString());
+    expect((usdcAfter - usdcBefore).toString()).to.equal(usd(100).toString());
+    expect((rcBefore - rcAfter).toString()).to.equal(usd(100).toString());
+  });
+
+  it("grantee cannot redeem RuleCash for USDC (not an approved merchant)", async () => {
+    await expectRevert(redeem(grantee, usd(10)), "NotApprovedMerchant");
+  });
+
+  it("keeps RuleCash supply fully backed by the vault", async () => {
+    const supply = (await getMint(connection, mint.publicKey, "confirmed", TOKEN_2022_PROGRAM_ID)).supply;
+    const vault = (await getAccount(connection, vaultPda, "confirmed", USDC_PROGRAM)).amount;
+    expect(vault.toString()).to.equal(supply.toString());
   });
 });

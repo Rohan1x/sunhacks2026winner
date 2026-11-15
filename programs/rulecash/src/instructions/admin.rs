@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::Mint;
+use anchor_lang::solana_program::program_option::COption;
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::errors::RuleError;
 use crate::instructions::hook::verify_mint_hook_points_here;
@@ -11,7 +13,9 @@ use crate::state::*;
 pub struct InitGrant<'info> {
     #[account(mut)]
     pub issuer: Signer<'info>,
+    /// RuleCash mint. Must have TransferHook -> this program and mint authority = grant PDA.
     pub mint: InterfaceAccount<'info, Mint>,
+    pub usdc_mint: InterfaceAccount<'info, Mint>,
     #[account(
         init,
         payer = issuer,
@@ -20,15 +24,37 @@ pub struct InitGrant<'info> {
         bump
     )]
     pub grant: Account<'info, Grant>,
+    /// USDC reserve owned by the grant PDA.
+    #[account(
+        init,
+        payer = issuer,
+        associated_token::mint = usdc_mint,
+        associated_token::authority = grant,
+        associated_token::token_program = usdc_token_program
+    )]
+    pub vault: InterfaceAccount<'info, TokenAccount>,
+    pub usdc_token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
 pub fn init_grant_handler(ctx: Context<InitGrant>, allowed_categories: u32, daily_cap: u64) -> Result<()> {
     verify_mint_hook_points_here(&ctx.accounts.mint.to_account_info())?;
 
+    let grant_key = ctx.accounts.grant.key();
+    require!(
+        ctx.accounts.mint.mint_authority == COption::Some(grant_key),
+        RuleError::MintAuthorityMismatch
+    );
+    require!(
+        ctx.accounts.mint.decimals == ctx.accounts.usdc_mint.decimals,
+        RuleError::DecimalsMismatch
+    );
+
     let grant = &mut ctx.accounts.grant;
     grant.issuer = ctx.accounts.issuer.key();
     grant.mint = ctx.accounts.mint.key();
+    grant.usdc_mint = ctx.accounts.usdc_mint.key();
     grant.allowed_categories = allowed_categories;
     grant.daily_cap = daily_cap;
     grant.bump = ctx.bumps.grant;
