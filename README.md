@@ -6,15 +6,17 @@ Built at SunHacks 2026.
 
 - 📋 Full build plan: [PLAN.md](PLAN.md)
 - 🌐 Network: Solana devnet (program `3jea1uUS3qbgGYXLrUDirRUPN97qhPEF3A9c8vue3H9t`)
-- 🖥️ Live app: https://rohan1x.github.io/sunhacks2026winner/ (once GitHub Pages is enabled, see below)
+- 🖥️ Live app: https://rohan1x.github.io/sunhacks2026winner/
 
 ## Status
 
 - ✅ Phase 1: transfer hook enforces merchant allowlist, category bitmask, per-tx cap and per-grantee daily cap.
 - ✅ Phase 2 (program): USDC vault. `deposit_and_mint` locks USDC and mints RuleCash 1:1. `redeem` lets approved merchants burn RuleCash for USDC. The RuleCash mint authority is the grant PDA, so supply can only grow through the vault.
 - ✅ Deployed to devnet and seeded. Smoke test passes on devnet.
-- ✅ Web app: dashboard, pay, merchant and issuer pages. Static export, deployed by GitHub Actions to GitHub Pages.
-- ⏳ Not yet: Phantom end-to-end test, Solana Pay QR, Blinks, stats page.
+- ✅ Web app: dashboard, pay, merchant and issuer pages. Static export, deployed by GitHub Actions to GitHub Pages. Live dashboard and pay page confirmed.
+- ✅ Wallet flow verified in the browser with a stand-in wallet (see "Testing without Phantom"): pay, blocked pay, merchant redeem, issuer fund.
+- ⏳ Not yet verified: a real Phantom wallet end to end (see "Using Phantom").
+- ⏳ Not yet built: Solana Pay QR, Blinks, stats page.
 
 Test notes: the mock USDC in tests is Token-2022. Classic-token ATA creation fails on the local Agave 4.x validator, so the classic-token path (`usdc_token_program = Tokenkeg…`) is not exercised by the suite yet.
 
@@ -66,27 +68,50 @@ cd web && npm install && npx next dev -p 3000
 
 Demo state is tied to the validator that was seeded (the local validator runs with `--reset`). If you reset the validator, run seed and rebuild the web app.
 
-Status:
-- Dashboard and feed: checked in a browser against the local validator. Funded, redeemed, paid and blocked rows all show.
-- Write paths (issuer, merchant, pay): transaction builders live in `web/lib/actions.ts`, shared by the pages and by `scripts/web-smoke.ts`. The smoke test covers setPolicy, addMerchant, pause and reactivate, fund a new grantee, pay to a merchant with no RuleCash account yet, and redeem. It does not exercise the React UI or a browser wallet.
+### Notes on the write paths
+
+- Transaction builders live in `web/lib/actions.ts`. The pages and `scripts/web-smoke.ts` share them. The smoke test covers setPolicy, addMerchant, pause and reactivate, fund a new grantee, pay to a merchant with no RuleCash account yet, and redeem. It does not exercise the React UI or a browser wallet.
 - The pay transaction builds the transfer hook accounts from PDA seeds. The SPL helper reads the destination account at build time, which fails when the merchant has no RuleCash account yet.
-- Browser wallet signing (Phantom) not yet tested end to end.
-- Issuer console needs the CLI issuer wallet (`~/.config/solana/id.json`) imported into Phantom. It is not in `scripts/.demo-keys`.
-- If Phantom refuses to sign a transaction that fails its own simulation, use `scripts/demo-activity.ts` for the on-stage blocked demo.
-- Not yet: Solana Pay QR and Blinks (need a public HTTPS URL), devnet deploy (needs devnet SOL in the deploy wallet).
+- The issuer console only shows write controls when the connected wallet is the grant issuer (`~/.config/solana/id.json` for the devnet deploy). Import that key into Phantom to use it.
+- If Phantom refuses to sign a transaction that fails its own simulation, use `scripts/demo-activity.ts` for the on-stage blocked demo. Not confirmed against real Phantom yet.
+
+## Using Phantom
+
+Phantom is a browser extension that holds your keys. The site never sees them.
+
+**Install (one-time):**
+1. Open the Phantom listing in the Chrome Web Store: https://chromewebstore.google.com/detail/phantom/bfnaelmomeimhlpmgjnjophhpkkoljpa
+2. Check the publisher is Phantom, then click **Add to Chrome**.
+3. Open Phantom and create a wallet, writing down the recovery phrase on paper. Or import an existing key.
+4. In Phantom's settings, switch the network to **Devnet**. The app runs on devnet, so a mainnet wallet won't work.
+
+**Get devnet SOL** (needed for fees) from a devnet faucet, such as https://faucet.solana.com.
+
+**Import a demo key** (optional, for testing as a grantee or merchant): the demo keys are in `scripts/.demo-keys/` (gitignored). Import one through Phantom's import screen. Keep the file private. Don't paste the key anywhere else.
+
+**How sign-in works:**
+- There's no site login or password. Clicking **Connect** asks Phantom to share your public address with the site. You approve in a popup. The site gets your address only.
+- Each action (a payment, a redeem, an issuer change) asks Phantom to sign that transaction. Phantom shows the amount, recipient and fee. You approve, and Phantom signs inside the extension. The site then sends the signed transaction.
+- The pages only show the buttons that match your role. The issuer console checks that the connected address is the grant issuer.
 
 ## GitHub Pages
 
 The web app is a static export. `.github/workflows/pages.yml` builds it with `BASE_PATH=/sunhacks2026winner` and `NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com`, then publishes `web/out`.
 
-One-time setup: in the repo, Settings → Pages → Build and deployment → Source: **GitHub Actions**. After that, pushes to `main` that touch `web/` redeploy.
+One-time setup (done): in the repo, Settings → Pages → Build and deployment → Source: **GitHub Actions**. Pushes to `main` that touch `web/` redeploy.
 
 Live URL: https://rohan1x.github.io/sunhacks2026winner/
 
 Notes:
-- The browser talks to devnet directly, so the public devnet RPC rate limits apply. Use a dedicated RPC by changing `NEXT_PUBLIC_RPC_URL` in the workflow.
+- The browser talks to devnet directly, so the public devnet RPC rate limits apply. Under load the dashboard can go blank. Use a dedicated RPC by changing `NEXT_PUBLIC_RPC_URL` in the workflow.
 - Wallet features need Phantom in the browser. The dashboard works without one.
 
-## Testing the web app without Phantom
+## Testing without Phantom
 
 `scripts/dev-signer.ts` runs locally on 127.0.0.1:4020 and signs with the demo keys. `scripts/dev-wallet.js` provides a stand-in wallet for the browser (`useDevWallet("grantee1")` in the console, then click Connect). Dev only. No private key enters the page.
+
+Verified this way against devnet:
+- Pay Pizza Co (allowed): `✓ Paid`. Also confirmed on the live GitHub Pages site.
+- Pay the casino (blocked category): `✗ Blocked on-chain: CategoryBlocked`. Local build only.
+- Merchant redeems RuleCash for USDC. Local build only.
+- Issuer funds a grantee. Local build only.
