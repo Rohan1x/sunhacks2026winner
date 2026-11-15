@@ -1,5 +1,6 @@
 "use client";
 
+import DemoAccounts from "./DemoAccounts";
 import { useEffect, useState } from "react";
 import {
   CATEGORY_NAMES,
@@ -71,6 +72,8 @@ export default function Dashboard() {
   return (
     <>
       <h1>Grant dashboard</h1>
+
+      <DemoAccounts />
       <p className="muted">
         Cluster: <span className="mono">{DEMO.cluster}</span> · Mint:{" "}
         <span className="mono">{shortAddr(DEMO.cashrulesMint)}</span>

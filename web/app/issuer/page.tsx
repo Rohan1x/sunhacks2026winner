@@ -21,6 +21,7 @@ import {
   prepare,
   sendSigned,
 } from "../../lib/actions";
+import WalletBar from "../WalletBar";
 import { InjectedWallet, errorName, getInjected, walletProgram } from "../../lib/wallet";
 import ExceptionQueue from "./ExceptionQueue";
 
@@ -66,6 +67,12 @@ export default function IssuerPage() {
   useEffect(() => {
     refresh();
   }, []);
+
+  // Forget this account. The next Connect asks Phantom which account to use.
+  function disconnect() {
+    setOwner(null);
+    setStatus(null);
+  }
 
   async function connectWallet() {
     const w = getInjected();
@@ -162,6 +169,8 @@ export default function IssuerPage() {
   return (
     <>
       <h1>Issuer console</h1>
+
+      <WalletBar owner={owner} role="Issuer (runs the grant)" onSwitch={disconnect} />
       <p className="muted">Manage the grant: approve or pause merchants, set the category policy and daily cap, and fund grantees.</p>
 
       {!owner ? (

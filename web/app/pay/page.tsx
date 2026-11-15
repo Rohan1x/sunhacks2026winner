@@ -14,6 +14,7 @@ import {
   readonlyProgram,
 } from "../../lib/chain";
 import { buildPay, buildRequestException, prepare, sendSigned } from "../../lib/actions";
+import WalletBar from "../WalletBar";
 import { InjectedWallet, describeError, getInjected, walletProgram } from "../../lib/wallet";
 
 type Status = { kind: "ok" | "bad" | "info"; text: string } | null;
@@ -43,6 +44,12 @@ export default function Pay() {
     setSpentToday(await loadSpentToday(who));
     const grant = await readonlyProgram.account.grant.fetch(GRANT);
     setDailyCap(Number(grant.dailyCap.toString()) / 10 ** CASHRULES_DECIMALS);
+  }
+
+  // Forget this account. The next Connect asks Phantom which account to use.
+  function disconnect() {
+    setOwner(null);
+    setStatus(null);
   }
 
   async function connectWallet() {
@@ -138,6 +145,8 @@ export default function Pay() {
   return (
     <>
       <h1>Pay with CashRules</h1>
+
+      <WalletBar owner={owner} role="Grantee (pays)" onSwitch={disconnect} />
       <p className="muted">
         Payments succeed only at approved merchants, within the merchant cap and your daily cap. Anything else is
         rejected by the chain.

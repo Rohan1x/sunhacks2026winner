@@ -10,6 +10,7 @@ export type InjectedWallet = {
   connect: () => Promise<{ publicKey: PublicKey }>;
   signTransaction: (tx: Transaction) => Promise<Transaction>;
   signAllTransactions: (txs: Transaction[]) => Promise<Transaction[]>;
+  disconnect?: () => Promise<void>;
 };
 
 export function getInjected(): InjectedWallet | null {

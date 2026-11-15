@@ -13,6 +13,7 @@ import {
   usdcAta,
 } from "../../lib/chain";
 import { buildRedeem, prepare, sendSigned } from "../../lib/actions";
+import WalletBar from "../WalletBar";
 import { InjectedWallet, getInjected, walletProgram } from "../../lib/wallet";
 
 type Status = { kind: "ok" | "bad" | "info"; text: string } | null;
@@ -43,6 +44,12 @@ export default function MerchantPage() {
     };
     setRc(await bal(rcAta(who), TOKEN_2022_PROGRAM_ID));
     setUsdc(await bal(usdcAta(who), USDC_PROGRAM));
+  }
+
+  // Forget this account. The next Connect asks Phantom which account to use.
+  function disconnect() {
+    setOwner(null);
+    setStatus(null);
   }
 
   async function connectWallet() {
@@ -94,6 +101,8 @@ export default function MerchantPage() {
   return (
     <>
       <h1>Merchant</h1>
+
+      <WalletBar owner={owner} role="Merchant (redeems)" onSwitch={disconnect} />
       <p className="muted">
         Approved merchants redeem CashRules for USDC 1:1 from the vault. Redemption is only open to approved merchants, so
         grantees cannot cash out and escape the grant rules.
