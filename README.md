@@ -57,7 +57,8 @@ Run it against a local validator:
 anchor build
 npx ts-node scripts/seed.ts          # writes web/lib/demo.json and scripts/.demo-keys/
 npx ts-node scripts/demo-activity.ts # one paid, three blocked transfers for the feed
-cd web && npm install && npx next build && npx next start -p 3000
+cd web && npm install && npx next dev -p 3000
+# or: npx next build   (writes a static site to web/out)
 ```
 
 Demo state is tied to the validator that was seeded (the local validator runs with `--reset`). If you reset the validator, run seed and rebuild the web app.
@@ -70,3 +71,15 @@ Status:
 - Issuer console needs the CLI issuer wallet (`~/.config/solana/id.json`) imported into Phantom. It is not in `scripts/.demo-keys`.
 - If Phantom refuses to sign a transaction that fails its own simulation, use `scripts/demo-activity.ts` for the on-stage blocked demo.
 - Not yet: Solana Pay QR and Blinks (need a public HTTPS URL), devnet deploy (needs devnet SOL in the deploy wallet).
+
+## GitHub Pages
+
+The web app is a static export. `.github/workflows/pages.yml` builds it with `BASE_PATH=/sunhacks2026winner` and `NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com`, then publishes `web/out`.
+
+One-time setup: in the repo, Settings → Pages → Build and deployment → Source: **GitHub Actions**. After that, pushes to `main` that touch `web/` redeploy.
+
+Live URL: https://rohan1x.github.io/sunhacks2026winner/
+
+Notes:
+- The browser talks to devnet directly, so the public devnet RPC rate limits apply. Use a dedicated RPC by changing `NEXT_PUBLIC_RPC_URL` in the workflow.
+- Wallet features need Phantom in the browser. The dashboard works without one.
