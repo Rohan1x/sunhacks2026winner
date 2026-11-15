@@ -41,3 +41,28 @@ anchor test
 ```
 
 **Windows:** `solana-test-validator` needs symlink privilege (os error 1314) and won't start from a normal Windows shell. Run `anchor test` inside WSL (Ubuntu) instead.
+
+## Web app (`web/`)
+
+| Page | Who | Does |
+|---|---|---|
+| `/` | anyone | Grant state, backing check, merchants, live spend feed (paid, blocked with on-chain error name, funded, redeemed) |
+| `/pay` | grantee (Phantom) | Pay an approved merchant. Shows daily cap left. Rejections land on-chain and show in the feed |
+| `/merchant` | merchant (Phantom) | See approval status, redeem RuleCash for USDC |
+| `/issuer` | issuer (Phantom) | Add, pause or reactivate merchants, set category policy and daily cap, fund grantees |
+
+Run it against a local validator:
+
+```bash
+anchor build
+npx ts-node scripts/seed.ts          # writes web/lib/demo.json and scripts/.demo-keys/
+npx ts-node scripts/demo-activity.ts # one paid, three blocked transfers for the feed
+cd web && npm install && npx next build && npx next start -p 3000
+```
+
+Demo state is tied to the validator that was seeded (the local validator runs with `--reset`). If you reset the validator, run seed and rebuild the web app.
+
+Status:
+- Dashboard and feed: checked in a browser against the local validator.
+- `/pay`, `/merchant`, `/issuer` write paths: built and typecheck, but not yet exercised in a browser. Phantom signing was not available during development. The same instructions are covered by `anchor test`.
+- Not yet: Solana Pay QR, Blinks (need a public HTTPS URL), devnet deploy.

@@ -13,6 +13,7 @@ import {
   RULECASH_DECIMALS,
   connection,
   rcAta,
+  loadSpentToday,
 } from "../../lib/chain";
 
 // Minimal injected-wallet type (Phantom and most Solana wallets expose window.solana).
@@ -37,6 +38,7 @@ function explainError(e: any): string {
 export default function Pay() {
   const [owner, setOwner] = useState<PublicKey | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [spentToday, setSpentToday] = useState<number | null>(null);
   const [merchantWallet, setMerchantWallet] = useState(DEMO.merchants[0]?.wallet ?? "");
   const [amount, setAmount] = useState("25");
   const [status, setStatus] = useState<{ kind: "ok" | "bad" | "info"; text: string } | null>(null);
@@ -56,6 +58,7 @@ export default function Pay() {
     try {
       const acct = await getAccount(connection, rcAta(who), "confirmed", TOKEN_2022_PROGRAM_ID);
       setBalance(Number(acct.amount) / 10 ** RULECASH_DECIMALS);
+      setSpentToday(await loadSpentToday(who));
     } catch {
       setBalance(0);
     }
@@ -148,6 +151,7 @@ export default function Pay() {
             Connected <span className="mono">{owner.toBase58()}</span>
             <br />
             Balance: <strong>{balance === null ? "…" : balance.toLocaleString()} RuleCash</strong>
+            {" · "}Daily cap left:{" "}<strong>{spentToday === null ? "…" : Math.max(0, DEMO.dailyCap - spentToday).toLocaleString()} of {DEMO.dailyCap.toLocaleString()}</strong>
           </p>
         )}
       </div>

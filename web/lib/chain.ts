@@ -172,3 +172,25 @@ export async function loadFeed(limit = 50): Promise<FeedItem[]> {
   );
   return results.filter((r): r is FeedItem => r !== null);
 }
+
+export const spendPda = (owner: PublicKey) =>
+  PublicKey.findProgramAddressSync(
+    [Buffer.from("spend"), MINT.toBuffer(), owner.toBuffer()],
+    PROGRAM_ID
+  )[0];
+
+export const usdcAta = (owner: PublicKey) =>
+  getAssociatedTokenAddressSync(USDC_MINT, owner, false, USDC_PROGRAM);
+
+// Spend resets each UTC day, so only today's counter counts against the cap.
+export async function loadSpentToday(owner: PublicKey): Promise<number> {
+  const spend = await readonlyProgram.account.spend.fetchNullable(spendPda(owner));
+  if (!spend) return 0;
+  const today = Math.floor(Date.now() / 1000 / 86400);
+  if (Number(spend.dayIndex.toString()) !== today) return 0;
+  return Number(spend.spentToday.toString()) / 10 ** RULECASH_DECIMALS;
+}
+
+export async function hasSpendAccount(owner: PublicKey): Promise<boolean> {
+  return (await readonlyProgram.account.spend.fetchNullable(spendPda(owner))) !== null;
+}
