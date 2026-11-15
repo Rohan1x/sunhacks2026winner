@@ -1,27 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BN } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
+import { TOKEN_2022_PROGRAM_ID, getAccount } from "@solana/spl-token";
 import {
-  TOKEN_2022_PROGRAM_ID,
-  createAssociatedTokenAccountIdempotentInstruction,
-  getAccount,
-} from "@solana/spl-token";
-import {
-  GRANT,
-  MINT,
   RULECASH_DECIMALS,
-  USDC_MINT,
   USDC_PROGRAM,
-  VAULT,
   connection,
   merchantPda,
   rcAta,
   readonlyProgram,
   usdcAta,
 } from "../../lib/chain";
-import { InjectedWallet, errorName, getInjected, walletProgram } from "../../lib/wallet";
+import { buildRedeem, prepare, sendSigned } from "../../lib/actions";
+import { InjectedWallet, getInjected, walletProgram } from "../../lib/wallet";
 
 type Status = { kind: "ok" | "bad" | "info"; text: string } | null;
 
@@ -79,33 +71,22 @@ export default function MerchantPage() {
       return;
     }
     setBusy(true);
-    setStatus({ kind: "info", text: "Waiting for signature…" });
     try {
+      setStatus({ kind: "info", text: "Building transaction…" });
+      // Only the wallet's own Anchor program is needed to build; signing goes through the injected wallet.
       const program = walletProgram(wallet, owner);
-      // Anchor's typed client hides relation and PDA accounts, so the account map is typed as any.
-      const redeemAccounts: any = {
-        merchant: owner,
-        mint: MINT,
-        usdcMint: USDC_MINT,
-        grant: GRANT,
-        merchantAccount: merchantPda(owner),
-        merchantRulecash: rcAta(owner),
-        merchantUsdc: usdcAta(owner),
-        vault: VAULT,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-        usdcTokenProgram: USDC_PROGRAM,
-      };
-      const sig = await program.methods
-        .redeem(new BN(Math.round(value * 10 ** RULECASH_DECIMALS)))
-        .accounts(redeemAccounts)
-        .preInstructions([
-          createAssociatedTokenAccountIdempotentInstruction(owner, usdcAta(owner), owner, USDC_MINT, USDC_PROGRAM),
-        ])
-        .rpc();
-      setStatus({ kind: "ok", text: `✓ Redeemed ${value} RuleCash for USDC. ${sig.slice(0, 8)}…` });
+      const tx = await prepare(connection, await buildRedeem(program, owner, value), owner);
+      setStatus({ kind: "info", text: "Waiting for signature…" });
+      const signed = await wallet.signTransaction(tx);
+      const result = await sendSigned(connection, signed, false);
+      if (result.error) {
+        setStatus({ kind: "bad", text: `✗ Redeem failed: ${result.error}` });
+      } else {
+        setStatus({ kind: "ok", text: `✓ Redeemed ${value} RuleCash for USDC. ${result.signature.slice(0, 8)}…` });
+      }
       await refresh(owner);
     } catch (e: any) {
-      setStatus({ kind: "bad", text: `✗ Redeem failed: ${errorName(e)}` });
+      setStatus({ kind: "bad", text: `✗ Redeem failed: ${e?.message ?? String(e)}` });
     } finally {
       setBusy(false);
     }

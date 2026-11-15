@@ -64,7 +64,8 @@ Demo state is tied to the validator that was seeded (the local validator runs wi
 
 Status:
 - Dashboard and feed: checked in a browser against the local validator. Funded, redeemed, paid and blocked rows all show.
-- Write paths (issuer, merchant, pay): covered headlessly by `scripts/web-smoke.ts`. It runs the same instruction sequence and account maps as the pages: setPolicy, addMerchant, pause and reactivate, fund a new grantee, pay, redeem. It does not exercise the React UI or a browser wallet.
+- Write paths (issuer, merchant, pay): transaction builders live in `web/lib/actions.ts`, shared by the pages and by `scripts/web-smoke.ts`. The smoke test covers setPolicy, addMerchant, pause and reactivate, fund a new grantee, pay to a merchant with no RuleCash account yet, and redeem. It does not exercise the React UI or a browser wallet.
+- The pay transaction builds the transfer hook accounts from PDA seeds. The SPL helper reads the destination account at build time, which fails when the merchant has no RuleCash account yet.
 - Browser wallet signing (Phantom) not yet tested end to end.
 - Issuer console needs the CLI issuer wallet (`~/.config/solana/id.json`) imported into Phantom. It is not in `scripts/.demo-keys`.
 - If Phantom refuses to sign a transaction that fails its own simulation, use `scripts/demo-activity.ts` for the on-stage blocked demo.

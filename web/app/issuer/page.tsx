@@ -1,26 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BN } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
-import { TOKEN_2022_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
+import { PublicKey, Transaction } from "@solana/web3.js";
 import {
   CATEGORY_NAMES,
   DashboardState,
   DEMO,
   GRANT,
-  MINT,
-  RULECASH_DECIMALS,
-  USDC_MINT,
-  USDC_PROGRAM,
-  VAULT,
   hasSpendAccount,
   loadDashboard,
   merchantPda,
-  rcAta,
-  spendPda,
-  usdcAta,
+  connection,
 } from "../../lib/chain";
+import {
+  Program_,
+  buildAddMerchant,
+  buildFundGrantee,
+  buildSetMerchant,
+  buildSetPolicy,
+  prepare,
+  sendSigned,
+} from "../../lib/actions";
 import { InjectedWallet, errorName, getInjected, walletProgram } from "../../lib/wallet";
 
 type Status = { kind: "ok" | "bad" | "info"; text: string } | null;
@@ -83,16 +83,22 @@ export default function IssuerPage() {
     }
   }
 
-  // Runs an issuer action with the connected wallet and reports the result.
-  async function run(label: string, fn: (program: ReturnType<typeof walletProgram>) => Promise<string>) {
+  // Build an issuer transaction, sign with the connected wallet, send, and report.
+  async function run(label: string, build: (program: Program_) => Promise<Transaction>) {
     if (!wallet || !owner) return;
     setBusy(true);
     setStatus({ kind: "info", text: `${label}: waiting for signature…` });
     try {
       const program = walletProgram(wallet, owner);
-      const sig = await fn(program);
-      setStatus({ kind: "ok", text: `✓ ${label} done. ${sig.slice(0, 8)}…` });
-      await refresh();
+      const tx = await prepare(connection, await build(program), owner);
+      const signed = await wallet.signTransaction(tx);
+      const result = await sendSigned(connection, signed, false);
+      if (result.error) {
+        setStatus({ kind: "bad", text: `✗ ${label} failed: ${result.error}` });
+      } else {
+        setStatus({ kind: "ok", text: `✓ ${label} done. ${result.signature.slice(0, 8)}…` });
+        await refresh();
+      }
     } catch (e: any) {
       setStatus({ kind: "bad", text: `✗ ${label} failed: ${errorName(e)}` });
     } finally {
@@ -102,10 +108,7 @@ export default function IssuerPage() {
 
   const toggleMerchant = (m: DashboardState["merchants"][number]) =>
     run(m.active ? "Pause merchant" : "Reactivate merchant", (program) =>
-      program.methods
-        .setMerchant(new PublicKey(m.wallet), m.category, new BN(Math.round(m.perTxCap * 10 ** RULECASH_DECIMALS)), !m.active)
-        .accounts({ issuer: owner!, mint: MINT, grant: GRANT, merchant: merchantPda(new PublicKey(m.wallet)) })
-        .rpc()
+      buildSetMerchant(program, owner!, new PublicKey(m.wallet), m.category, m.perTxCap, !m.active)
     );
 
   const addMerchant = () => {
@@ -116,17 +119,13 @@ export default function IssuerPage() {
       setStatus({ kind: "bad", text: "Merchant wallet is not a valid address." });
       return;
     }
-    const category = Number(newCategory);
     const cap = Number(newCap);
     if (!(cap > 0)) {
       setStatus({ kind: "bad", text: "Per-tx cap must be greater than 0." });
       return;
     }
     run("Add merchant", (program) =>
-      program.methods
-        .addMerchant(merchantWallet, category, new BN(Math.round(cap * 10 ** RULECASH_DECIMALS)))
-        .accounts({ issuer: owner!, mint: MINT, grant: GRANT, merchant: merchantPda(merchantWallet) })
-        .rpc()
+      buildAddMerchant(program, owner!, merchantWallet, Number(newCategory), cap)
     );
   };
 
@@ -137,12 +136,7 @@ export default function IssuerPage() {
       setStatus({ kind: "bad", text: "Daily cap must be greater than 0." });
       return;
     }
-    run("Save policy", (program) =>
-      program.methods
-        .setPolicy(bits, new BN(Math.round(cap * 10 ** RULECASH_DECIMALS)))
-        .accounts({ issuer: owner!, mint: MINT, grant: GRANT })
-        .rpc()
-    );
+    run("Save policy", (program) => buildSetPolicy(program, owner!, bits, cap));
   };
 
   const fundGrantee = async () => {
@@ -159,39 +153,7 @@ export default function IssuerPage() {
       return;
     }
     const needsSpend = !(await hasSpendAccount(grantee));
-    run("Fund grantee", async (program) => {
-      // Anchor's typed client hides relation and PDA accounts, so account maps are typed as any.
-      const depositAccounts: any = {
-        issuer: owner!,
-        mint: MINT,
-        usdcMint: USDC_MINT,
-        grant: GRANT,
-        issuerUsdc: usdcAta(owner!),
-        vault: VAULT,
-        grantee,
-        granteeToken: rcAta(grantee),
-        usdcTokenProgram: USDC_PROGRAM,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-      };
-      const ataIx = createAssociatedTokenAccountIdempotentInstruction(
-        owner!,
-        rcAta(grantee),
-        grantee,
-        MINT,
-        TOKEN_2022_PROGRAM_ID
-      );
-      const preIxs = [ataIx];
-      if (needsSpend) {
-        // Transfers need this counter; create it in the same transaction.
-        const initSpendAccounts: any = { payer: owner!, mint: MINT, spend: spendPda(grantee) };
-        preIxs.push(await program.methods.initSpend(grantee).accounts(initSpendAccounts).instruction());
-      }
-      return program.methods
-        .depositAndMint(new BN(Math.round(amount * 10 ** RULECASH_DECIMALS)))
-        .accounts(depositAccounts)
-        .preInstructions(preIxs)
-        .rpc();
-    });
+    run("Fund grantee", (program) => buildFundGrantee(program, owner!, grantee, amount, needsSpend));
   };
 
   const togglePolicyBit = (bit: number) =>
