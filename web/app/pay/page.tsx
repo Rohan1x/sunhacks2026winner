@@ -5,6 +5,7 @@ import { PublicKey, Transaction } from "@solana/web3.js";
 import {
   TOKEN_2022_PROGRAM_ID,
   createTransferCheckedWithTransferHookInstruction,
+  createAssociatedTokenAccountIdempotentInstruction,
   getAccount,
 } from "@solana/spl-token";
 import {
@@ -14,6 +15,8 @@ import {
   connection,
   rcAta,
   loadSpentToday,
+  readonlyProgram,
+  GRANT,
 } from "../../lib/chain";
 
 // Minimal injected-wallet type (Phantom and most Solana wallets expose window.solana).
@@ -39,6 +42,7 @@ export default function Pay() {
   const [owner, setOwner] = useState<PublicKey | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [spentToday, setSpentToday] = useState<number | null>(null);
+  const [dailyCap, setDailyCap] = useState<number | null>(null);
   const [merchantWallet, setMerchantWallet] = useState(DEMO.merchants[0]?.wallet ?? "");
   const [amount, setAmount] = useState("25");
   const [status, setStatus] = useState<{ kind: "ok" | "bad" | "info"; text: string } | null>(null);
@@ -59,6 +63,8 @@ export default function Pay() {
       const acct = await getAccount(connection, rcAta(who), "confirmed", TOKEN_2022_PROGRAM_ID);
       setBalance(Number(acct.amount) / 10 ** RULECASH_DECIMALS);
       setSpentToday(await loadSpentToday(who));
+      const grant = await readonlyProgram.account.grant.fetch(GRANT);
+      setDailyCap(Number(grant.dailyCap.toString()) / 10 ** RULECASH_DECIMALS);
     } catch {
       setBalance(0);
     }
@@ -103,7 +109,9 @@ export default function Pay() {
         "confirmed",
         TOKEN_2022_PROGRAM_ID
       );
-      const tx = new Transaction().add(ix);
+      // Create the merchant's RuleCash account if needed; the transfer hook cannot resolve without it.
+      const ataIx = createAssociatedTokenAccountIdempotentInstruction(owner, rcAta(dest), dest, new PublicKey(DEMO.rulecashMint), TOKEN_2022_PROGRAM_ID);
+      const tx = new Transaction().add(ataIx, ix);
       tx.feePayer = owner;
       tx.recentBlockhash = (await connection.getLatestBlockhash("confirmed")).blockhash;
 
@@ -151,7 +159,7 @@ export default function Pay() {
             Connected <span className="mono">{owner.toBase58()}</span>
             <br />
             Balance: <strong>{balance === null ? "…" : balance.toLocaleString()} RuleCash</strong>
-            {" · "}Daily cap left:{" "}<strong>{spentToday === null ? "…" : Math.max(0, DEMO.dailyCap - spentToday).toLocaleString()} of {DEMO.dailyCap.toLocaleString()}</strong>
+            {" · "}Daily cap left:{" "}<strong>{spentToday === null || dailyCap === null ? "…" : Math.max(0, dailyCap - spentToday).toLocaleString()} of {dailyCap === null ? "…" : dailyCap.toLocaleString()}</strong>
           </p>
         )}
       </div>

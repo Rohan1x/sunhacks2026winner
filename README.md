@@ -63,6 +63,9 @@ cd web && npm install && npx next build && npx next start -p 3000
 Demo state is tied to the validator that was seeded (the local validator runs with `--reset`). If you reset the validator, run seed and rebuild the web app.
 
 Status:
-- Dashboard and feed: checked in a browser against the local validator.
-- `/pay`, `/merchant`, `/issuer` write paths: built and typecheck, but not yet exercised in a browser. Phantom signing was not available during development. The same instructions are covered by `anchor test`.
-- Not yet: Solana Pay QR, Blinks (need a public HTTPS URL), devnet deploy.
+- Dashboard and feed: checked in a browser against the local validator. Funded, redeemed, paid and blocked rows all show.
+- Write paths (issuer, merchant, pay): covered headlessly by `scripts/web-smoke.ts`. It runs the same instruction sequence and account maps as the pages: setPolicy, addMerchant, pause and reactivate, fund a new grantee, pay, redeem. It does not exercise the React UI or a browser wallet.
+- Browser wallet signing (Phantom) not yet tested end to end.
+- Issuer console needs the CLI issuer wallet (`~/.config/solana/id.json`) imported into Phantom. It is not in `scripts/.demo-keys`.
+- If Phantom refuses to sign a transaction that fails its own simulation, use `scripts/demo-activity.ts` for the on-stage blocked demo.
+- Not yet: Solana Pay QR and Blinks (need a public HTTPS URL), devnet deploy (needs devnet SOL in the deploy wallet).
