@@ -21,3 +21,9 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
+
+# demo keypairs (localnet/devnet demo only)
+scripts/.demo-keys/
+
+# build artifacts
+*.tsbuildinfo

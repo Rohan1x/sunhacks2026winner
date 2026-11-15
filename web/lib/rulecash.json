@@ -1,0 +1,1204 @@
+{
+  "address": "3jea1uUS3qbgGYXLrUDirRUPN97qhPEF3A9c8vue3H9t",
+  "metadata": {
+    "name": "rulecash",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "RuleCash: USDC-style grant tokens enforced by a Token-2022 transfer hook"
+  },
+  "instructions": [
+    {
+      "name": "add_merchant",
+      "docs": [
+        "Issuer: approve a merchant wallet."
+      ],
+      "discriminator": [
+        198,
+        82,
+        166,
+        156,
+        165,
+        93,
+        203,
+        72
+      ],
+      "accounts": [
+        {
+          "name": "issuer",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "grant",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  114,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "merchant",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  114,
+                  99,
+                  104,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "arg",
+                "path": "wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "wallet",
+          "type": "pubkey"
+        },
+        {
+          "name": "category",
+          "type": "u8"
+        },
+        {
+          "name": "per_tx_cap",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "deposit_and_mint",
+      "docs": [
+        "Issuer: lock USDC in the vault and mint the same amount of RuleCash to a grantee (1:1 backing)."
+      ],
+      "discriminator": [
+        97,
+        126,
+        119,
+        210,
+        67,
+        186,
+        64,
+        23
+      ],
+      "accounts": [
+        {
+          "name": "issuer",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "usdc_mint",
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "grant",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  114,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "issuer_usdc",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "grant"
+              },
+              {
+                "kind": "account",
+                "path": "usdc_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "grantee"
+        },
+        {
+          "name": "grantee_token",
+          "writable": true
+        },
+        {
+          "name": "usdc_token_program"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "init_extra_account_metas",
+      "docs": [
+        "Issuer: create the ExtraAccountMetaList so Token-2022 knows which extra accounts to pass to the hook."
+      ],
+      "discriminator": [
+        9,
+        67,
+        237,
+        214,
+        19,
+        39,
+        118,
+        118
+      ],
+      "accounts": [
+        {
+          "name": "issuer",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "grant",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  114,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "extra_account_meta_list",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  120,
+                  116,
+                  114,
+                  97,
+                  45,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_grant",
+      "docs": [
+        "Issuer: register a grant for a Token-2022 mint whose TransferHook points at this program."
+      ],
+      "discriminator": [
+        141,
+        28,
+        193,
+        26,
+        49,
+        149,
+        221,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "issuer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mint",
+          "docs": [
+            "RuleCash mint. Must have TransferHook -> this program and mint authority = grant PDA."
+          ]
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "grant",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  114,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "USDC reserve owned by the grant PDA."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "grant"
+              },
+              {
+                "kind": "account",
+                "path": "usdc_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "usdc_token_program"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "allowed_categories",
+          "type": "u32"
+        },
+        {
+          "name": "daily_cap",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "init_spend",
+      "docs": [
+        "Anyone (pays rent): create the per-grantee spend counter. Needed before a grantee can receive funds."
+      ],
+      "discriminator": [
+        199,
+        99,
+        148,
+        37,
+        217,
+        19,
+        12,
+        94
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "spend",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  101,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "arg",
+                "path": "grantee"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "grantee",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "redeem",
+      "docs": [
+        "Approved merchant: burn RuleCash and receive USDC 1:1 from the vault."
+      ],
+      "discriminator": [
+        184,
+        12,
+        86,
+        149,
+        70,
+        196,
+        97,
+        225
+      ],
+      "accounts": [
+        {
+          "name": "merchant",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "usdc_mint",
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "grant",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  114,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "merchant_account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  114,
+                  99,
+                  104,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "account",
+                "path": "merchant"
+              }
+            ]
+          }
+        },
+        {
+          "name": "merchant_rulecash",
+          "writable": true
+        },
+        {
+          "name": "merchant_usdc",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "grant"
+              },
+              {
+                "kind": "account",
+                "path": "usdc_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "usdc_token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "set_merchant",
+      "docs": [
+        "Issuer: update an existing merchant (cap, category, active flag)."
+      ],
+      "discriminator": [
+        82,
+        229,
+        223,
+        235,
+        235,
+        212,
+        253,
+        163
+      ],
+      "accounts": [
+        {
+          "name": "issuer",
+          "signer": true,
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "grant",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  114,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "merchant",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  114,
+                  99,
+                  104,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "arg",
+                "path": "wallet"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "wallet",
+          "type": "pubkey"
+        },
+        {
+          "name": "category",
+          "type": "u8"
+        },
+        {
+          "name": "per_tx_cap",
+          "type": "u64"
+        },
+        {
+          "name": "active",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "set_policy",
+      "docs": [
+        "Issuer: change category bitmask and daily cap."
+      ],
+      "discriminator": [
+        40,
+        133,
+        12,
+        157,
+        235,
+        202,
+        2,
+        132
+      ],
+      "accounts": [
+        {
+          "name": "issuer",
+          "signer": true,
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "grant",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  114,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "allowed_categories",
+          "type": "u32"
+        },
+        {
+          "name": "daily_cap",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "transfer_hook",
+      "docs": [
+        "Token-2022 calls this on every transfer of a RuleCash mint. Reverts the transfer if any rule fails."
+      ],
+      "discriminator": [
+        105,
+        37,
+        101,
+        197,
+        75,
+        251,
+        102,
+        26
+      ],
+      "accounts": [
+        {
+          "name": "source_token"
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "grant"
+          ]
+        },
+        {
+          "name": "destination_token"
+        },
+        {
+          "name": "owner"
+        },
+        {
+          "name": "extra_account_meta_list",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  120,
+                  116,
+                  114,
+                  97,
+                  45,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "grant",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  114,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "merchant",
+          "docs": [
+            "destination gets NotApprovedMerchant instead of a generic Anchor error."
+          ]
+        },
+        {
+          "name": "spend",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  112,
+                  101,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "account",
+                "path": "source_token.owner"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Grant",
+      "discriminator": [
+        161,
+        166,
+        11,
+        205,
+        204,
+        135,
+        205,
+        54
+      ]
+    },
+    {
+      "name": "Merchant",
+      "discriminator": [
+        71,
+        235,
+        30,
+        40,
+        231,
+        21,
+        32,
+        64
+      ]
+    },
+    {
+      "name": "Spend",
+      "discriminator": [
+        239,
+        231,
+        148,
+        138,
+        205,
+        129,
+        218,
+        161
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NotApprovedMerchant",
+      "msg": "Destination is not an approved merchant"
+    },
+    {
+      "code": 6001,
+      "name": "CategoryBlocked",
+      "msg": "Merchant category is not allowed by this grant"
+    },
+    {
+      "code": 6002,
+      "name": "OverTxCap",
+      "msg": "Amount exceeds the merchant per-transaction cap"
+    },
+    {
+      "code": 6003,
+      "name": "OverDailyCap",
+      "msg": "Amount exceeds the grant daily cap"
+    },
+    {
+      "code": 6004,
+      "name": "NotTransferring",
+      "msg": "Transfer hook was invoked outside a Token-2022 transfer"
+    },
+    {
+      "code": 6005,
+      "name": "WrongTransferHookProgram",
+      "msg": "Mint transfer hook does not point to this program"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidCategory",
+      "msg": "Category must be between 0 and 31"
+    },
+    {
+      "code": 6007,
+      "name": "MintAuthorityMismatch",
+      "msg": "RuleCash mint authority must be the grant PDA"
+    },
+    {
+      "code": 6008,
+      "name": "DecimalsMismatch",
+      "msg": "RuleCash and USDC must have the same decimals"
+    },
+    {
+      "code": 6009,
+      "name": "ZeroAmount",
+      "msg": "Amount must be greater than zero"
+    }
+  ],
+  "types": [
+    {
+      "name": "Grant",
+      "docs": [
+        "One per RuleCash mint. Holds the issuer's policy."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "issuer",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "docs": [
+              "RuleCash (Token-2022) mint. Its mint authority is this grant PDA."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "docs": [
+              "Backing asset (USDC). Reserve lives in the grant PDA's ATA for this mint."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "allowed_categories",
+            "docs": [
+              "Bitmask: bit N set => merchants in category N are allowed."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "daily_cap",
+            "docs": [
+              "Max total spend per grantee per UTC day, in base units."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Merchant",
+      "docs": [
+        "One per approved merchant wallet per mint."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "category",
+            "type": "u8"
+          },
+          {
+            "name": "per_tx_cap",
+            "docs": [
+              "Max single payment to this merchant, in base units."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Spend",
+      "docs": [
+        "One per grantee per mint. Tracks spend within the current UTC day."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "grantee",
+            "type": "pubkey"
+          },
+          {
+            "name": "day_index",
+            "type": "i64"
+          },
+          {
+            "name": "spent_today",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}
